@@ -1,0 +1,67 @@
+name: Sync Release Notes to Docs
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get release info
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+          BODY=$(gh release view "$TAG" --repo ${{ github.repository }} --json body -q '.body')
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Checkout hyperstudy-docs
+        uses: actions/checkout@v4
+        with:
+          repository: ljchang/hyperstudy-docs
+          token: ${{ secrets.DOCS_REPO_TOKEN }}
+          path: docs-repo
+
+      - name: Create release notes
+        run: |
+          cd docs-repo
+          TAG="${{ steps.release.outputs.tag }}"
+          DIR="docs/release-notes/python-sdk"
+          FILE="$DIR/${TAG}.md"
+
+          mkdir -p "$DIR"
+
+          cat > "$FILE" << EOF
+          ---
+          title: Python SDK ${TAG}
+          ---
+
+          # Python SDK ${TAG}
+
+          Released: $(date -u +"%Y-%m-%d")
+
+          ${{ steps.release.outputs.body }}
+          EOF
+
+          # Remove leading whitespace from heredoc
+          sed -i 's/^          //' "$FILE"
+
+      - name: Create PR to hyperstudy-docs
+        uses: peter-evans/create-pull-request@v6
+        with:
+          path: docs-repo
+          token: ${{ secrets.DOCS_REPO_TOKEN }}
+          title: "docs: Python SDK ${{ steps.release.outputs.tag }} release notes"
+          branch: "python-sdk-release-${{ steps.release.outputs.tag }}"
+          commit-message: "Add Python SDK ${{ steps.release.outputs.tag }} release notes"
+          body: |
+            Auto-generated release notes for Python SDK ${{ steps.release.outputs.tag }}.
+
+            Source: ${{ github.event.release.html_url }}

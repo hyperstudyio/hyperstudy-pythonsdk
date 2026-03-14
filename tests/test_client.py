@@ -1,0 +1,265 @@
+"""Tests for the main HyperStudy client data-retrieval methods."""
+
+from __future__ import annotations
+
+import os
+
+import pandas as pd
+import pytest
+import responses
+
+from hyperstudy import HyperStudy
+from hyperstudy.exceptions import AuthenticationError, ForbiddenError
+
+BASE_URL = "https://api.hyperstudy.io/api/v3"
+
+
+@pytest.fixture
+def api_key():
+    return "hst_test_abc123"
+
+
+# ------------------------------------------------------------------
+# Construction
+# ------------------------------------------------------------------
+
+
+def test_client_requires_api_key():
+    """Client raises AuthenticationError when no key is provided."""
+    env = os.environ.copy()
+    env.pop("HYPERSTUDY_API_KEY", None)
+    # Temporarily clear env var if set
+    original = os.environ.pop("HYPERSTUDY_API_KEY", None)
+    try:
+        with pytest.raises(AuthenticationError, match="No API key"):
+            HyperStudy()
+    finally:
+        if original is not None:
+            os.environ["HYPERSTUDY_API_KEY"] = original
+
+
+def test_client_reads_env_var(monkeypatch):
+    """Client reads HYPERSTUDY_API_KEY from the environment."""
+    monkeypatch.setenv("HYPERSTUDY_API_KEY", "hst_test_envkey")
+    client = HyperStudy()
+    assert client._transport._session.headers["X-API-Key"] == "hst_test_envkey"
+
+
+# ------------------------------------------------------------------
+# Data retrieval — get_events
+# ------------------------------------------------------------------
+
+
+@responses.activate
+def test_get_events_pandas(api_key, events_response):
+    """get_events returns a pandas DataFrame by default."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_events("exp_abc123", limit=1000)
+
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 3
+    assert "onset_sec" in df.columns
+    assert df["onset_sec"].iloc[0] == pytest.approx(1.5)
+
+
+@responses.activate
+def test_get_events_dict(api_key, events_response):
+    """get_events with output='dict' returns raw list of dicts."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    data = client.get_events("exp_abc123", output="dict", limit=1000)
+
+    assert isinstance(data, list)
+    assert len(data) == 3
+    assert data[0]["id"] == "evt_001"
+
+
+@responses.activate
+def test_get_events_room_scope(api_key, events_response):
+    """get_events with scope='room' uses the correct URL path."""
+    responses.get(
+        f"{BASE_URL}/data/events/room/room_xyz",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_events("room_xyz", scope="room", limit=1000)
+    assert len(df) == 3
+
+
+@responses.activate
+def test_get_events_participant_scope(api_key, events_response):
+    """get_events with scope='participant' passes roomId query param."""
+    responses.get(
+        f"{BASE_URL}/data/events/participant/user_1",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_events("user_1", scope="participant", room_id="room_xyz", limit=1000)
+    assert len(df) == 3
+    # Verify roomId was passed as query param
+    assert "roomId=room_xyz" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_get_events_with_filters(api_key, events_response):
+    """get_events passes filtering query params correctly."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    client.get_events(
+        "exp_abc123",
+        start_time="2024-01-01T00:00:00Z",
+        end_time="2024-12-31T23:59:59Z",
+        category="component",
+        sort="onset",
+        order="desc",
+        limit=100,
+    )
+    url = responses.calls[0].request.url
+    assert "startTime=2024-01-01T00" in url
+    assert "category=component" in url
+    assert "sort=onset" in url
+    assert "order=desc" in url
+    assert "limit=100" in url
+
+
+# ------------------------------------------------------------------
+# Data retrieval — other types
+# ------------------------------------------------------------------
+
+
+@responses.activate
+def test_get_recordings(api_key, events_response):
+    """get_recordings hits the correct endpoint."""
+    responses.get(
+        f"{BASE_URL}/data/recordings/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_recordings("exp_abc123", limit=1000)
+    assert isinstance(df, pd.DataFrame)
+
+
+@responses.activate
+def test_get_ratings_continuous(api_key, events_response):
+    """get_ratings builds the ratings/continuous path."""
+    responses.get(
+        f"{BASE_URL}/data/ratings/continuous/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_ratings("exp_abc123", kind="continuous", limit=1000)
+    assert isinstance(df, pd.DataFrame)
+
+
+@responses.activate
+def test_get_ratings_sparse(api_key, events_response):
+    """get_ratings with kind='sparse' builds the correct path."""
+    responses.get(
+        f"{BASE_URL}/data/ratings/sparse/room/room_xyz",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_ratings("room_xyz", kind="sparse", scope="room", limit=1000)
+    assert isinstance(df, pd.DataFrame)
+
+
+@responses.activate
+def test_get_sync_with_aggregation(api_key, events_response):
+    """get_sync passes aggregationWindow param."""
+    responses.get(
+        f"{BASE_URL}/data/sync/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    client.get_sync("exp_abc123", aggregation_window=5000, limit=1000)
+    assert "aggregationWindow=5000" in responses.calls[0].request.url
+
+
+# ------------------------------------------------------------------
+# get_all_data
+# ------------------------------------------------------------------
+
+
+@responses.activate
+def test_get_all_data(api_key, events_response):
+    """get_all_data returns a dict of DataFrames."""
+    # Mock all data type endpoints for participant scope
+    for dtype in ("events", "recordings", "chat", "videochat", "sync",
+                  "ratings/continuous", "components"):
+        responses.get(
+            f"{BASE_URL}/data/{dtype}/participant/user_1",
+            json=events_response,
+            status=200,
+        )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    result = client.get_all_data("user_1", room_id="room_xyz")
+
+    assert isinstance(result, dict)
+    assert set(result.keys()) == {
+        "events", "recordings", "chat", "videochat", "sync", "ratings", "components"
+    }
+    for v in result.values():
+        assert isinstance(v, pd.DataFrame)
+
+
+# ------------------------------------------------------------------
+# Error handling
+# ------------------------------------------------------------------
+
+
+@responses.activate
+def test_401_raises_authentication_error(api_key, error_401):
+    """A 401 response raises AuthenticationError."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=error_401,
+        status=401,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    with pytest.raises(AuthenticationError, match="Invalid or expired"):
+        client.get_events("exp_abc123", limit=100)
+
+
+@responses.activate
+def test_403_raises_forbidden_error(api_key, error_403):
+    """A 403 response raises ForbiddenError with details."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=error_403,
+        status=403,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    with pytest.raises(ForbiddenError, match="Insufficient scopes") as exc_info:
+        client.get_events("exp_abc123", limit=100)
+    assert exc_info.value.details["required"] == ["read:events"]
+
+
+# ------------------------------------------------------------------
+# Invalid scope
+# ------------------------------------------------------------------
+
+
+def test_invalid_scope_raises_value_error(api_key):
+    """Passing an invalid scope string raises ValueError."""
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    with pytest.raises(ValueError, match="invalid"):
+        client.get_events("exp_abc123", scope="invalid", limit=100)

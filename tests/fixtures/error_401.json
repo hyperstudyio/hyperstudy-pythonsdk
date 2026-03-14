@@ -1,0 +1,7 @@
+{
+  "status": "error",
+  "error": {
+    "code": "AUTHENTICATION_ERROR",
+    "message": "Invalid or expired API key"
+  }
+}

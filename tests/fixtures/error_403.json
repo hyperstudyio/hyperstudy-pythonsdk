@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Insufficient scopes. Required: read:events",
+    "details": {
+      "required": ["read:events"],
+      "provided": ["read:recordings"]
+    }
+  }
+}

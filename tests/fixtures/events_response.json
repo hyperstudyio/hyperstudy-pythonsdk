@@ -1,0 +1,68 @@
+{
+  "status": "success",
+  "metadata": {
+    "dataType": "events",
+    "scope": "experiment",
+    "scopeId": "exp_abc123",
+    "timestamp": "2024-06-15T10:00:00.000Z",
+    "query": {
+      "startTime": null,
+      "endTime": null,
+      "category": null,
+      "limit": 1000,
+      "offset": 0,
+      "sort": "timestamp",
+      "order": "asc"
+    },
+    "pagination": {
+      "total": 3,
+      "returned": 3,
+      "hasMore": false,
+      "limit": 1000,
+      "offset": 0
+    },
+    "processing": {
+      "processingTimeMs": 42,
+      "enriched": true,
+      "version": "3.0.0"
+    }
+  },
+  "data": [
+    {
+      "id": "evt_001",
+      "experimentId": "exp_abc123",
+      "roomId": "room_xyz",
+      "participantId": "user_1",
+      "onset": 1500,
+      "timestamp": "2024-06-15T10:00:01.500Z",
+      "category": "component",
+      "componentType": "TextInput",
+      "content": "Hello world",
+      "stateId": "state_1"
+    },
+    {
+      "id": "evt_002",
+      "experimentId": "exp_abc123",
+      "roomId": "room_xyz",
+      "participantId": "user_1",
+      "onset": 3200,
+      "timestamp": "2024-06-15T10:00:03.200Z",
+      "category": "component",
+      "componentType": "Rating",
+      "content": "7",
+      "stateId": "state_2"
+    },
+    {
+      "id": "evt_003",
+      "experimentId": "exp_abc123",
+      "roomId": "room_xyz",
+      "participantId": "user_2",
+      "onset": 4000,
+      "timestamp": "2024-06-15T10:00:04.000Z",
+      "category": "system",
+      "componentType": null,
+      "content": "state_transition",
+      "stateId": "state_2"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "status": "success",
+  "metadata": {
+    "dataType": "experiments",
+    "scope": "user",
+    "scopeId": "user_owner",
+    "timestamp": "2024-06-15T10:00:00.000Z",
+    "pagination": {
+      "total": 2,
+      "returned": 2,
+      "hasMore": false,
+      "limit": 50,
+      "offset": 0
+    }
+  },
+  "data": [
+    {
+      "id": "exp_abc123",
+      "name": "Emotion Study",
+      "description": "A study on emotional responses to film clips",
+      "ownerEmail": "researcher@example.com",
+      "roomCount": 5,
+      "participantCount": 20,
+      "createdAt": "2024-06-01T10:00:00.000Z",
+      "updatedAt": "2024-06-10T14:30:00.000Z"
+    },
+    {
+      "id": "exp_def456",
+      "name": "Sync Pilot",
+      "description": "Pilot test for synchronization",
+      "ownerEmail": "researcher@example.com",
+      "roomCount": 2,
+      "participantCount": 4,
+      "createdAt": "2024-06-05T08:00:00.000Z",
+      "updatedAt": "2024-06-05T08:00:00.000Z"
+    }
+  ]
+}

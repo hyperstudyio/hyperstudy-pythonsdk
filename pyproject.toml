@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hyperstudy"
+version = "0.1.0"
+description = "Python SDK for the HyperStudy experiment platform API"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Luke Chang", email = "luke.j.chang@dartmouth.edu" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "requests>=2.28.0",
+    "pandas>=1.5.0",
+    "tqdm>=4.60.0",
+]
+
+[project.optional-dependencies]
+polars = ["polars>=0.20.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "responses>=0.23.0",
+    "ruff",
+]
+
+[project.urls]
+Homepage = "https://hyperstudy.io"
+Documentation = "https://docs.hyperstudy.io/developers/python-sdk"
+Repository = "https://github.com/ljchang/hyperstudy-pythonsdk"
+Issues = "https://github.com/ljchang/hyperstudy-pythonsdk/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hyperstudy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

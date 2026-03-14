@@ -1,0 +1,19 @@
+{
+  "status": "success",
+  "metadata": {
+    "dataType": "events",
+    "scope": "experiment",
+    "scopeId": "exp_abc123",
+    "pagination": {
+      "total": 5,
+      "returned": 2,
+      "hasMore": false,
+      "limit": 3,
+      "offset": 3
+    }
+  },
+  "data": [
+    {"id": "evt_004", "onset": 4000, "timestamp": "2024-06-15T10:00:04Z"},
+    {"id": "evt_005", "onset": 5000, "timestamp": "2024-06-15T10:00:05Z"}
+  ]
+}
