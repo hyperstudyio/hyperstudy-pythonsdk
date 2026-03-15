@@ -110,7 +110,7 @@ Full documentation: [docs.hyperstudy.io/developers/python-sdk](https://docs.hype
 ## Development
 
 ```bash
-git clone https://github.com/ljchang/hyperstudy-pythonsdk.git
+git clone https://github.com/hyperstudyio/hyperstudy-pythonsdk.git
 cd hyperstudy-pythonsdk
 pip install -e ".[dev,polars]"
 pytest --cov=hyperstudy
