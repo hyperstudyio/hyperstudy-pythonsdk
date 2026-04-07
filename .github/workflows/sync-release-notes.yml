@@ -53,15 +53,11 @@ jobs:
           # Remove leading whitespace from heredoc
           sed -i 's/^          //' "$FILE"
 
-      - name: Create PR to hyperstudy-docs
-        uses: peter-evans/create-pull-request@v6
-        with:
-          path: docs-repo
-          token: ${{ secrets.DOCS_REPO_TOKEN }}
-          title: "docs: Python SDK ${{ steps.release.outputs.tag }} release notes"
-          branch: "python-sdk-release-${{ steps.release.outputs.tag }}"
-          commit-message: "Add Python SDK ${{ steps.release.outputs.tag }} release notes"
-          body: |
-            Auto-generated release notes for Python SDK ${{ steps.release.outputs.tag }}.
-
-            Source: ${{ github.event.release.html_url }}
+      - name: Commit and push
+        run: |
+          cd docs-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/release-notes/
+          git commit -m "Add Python SDK ${{ steps.release.outputs.tag }} release notes" || exit 0
+          git push
