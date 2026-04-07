@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.0
+
+### Features
+
+- Convenience methods for common event categories: `get_questionnaire`, `get_instructions`, `get_consent`
+- Deployment management: `list_deployments`, `get_deployment`, `get_deployment_sessions`
+- API warning surfacing: backend `_warnings` metadata now emitted via Python's `warnings` module
+- `get_all_data` now includes `ratings_sparse`, `questionnaire`, `instructions`, and `consent`
+
+### Breaking Changes
+
+- `get_all_data` return keys changed: `"ratings"` split into `"ratings_continuous"` and `"ratings_sparse"`
+
 ## v0.1.0
 
 Initial release.

@@ -52,6 +52,31 @@ def paginated_page2():
 
 
 @pytest.fixture
+def pre_experiment_response():
+    return load_fixture("pre_experiment_response.json")
+
+
+@pytest.fixture
+def deployments_list_response():
+    return load_fixture("deployments_list_response.json")
+
+
+@pytest.fixture
+def deployment_single_response():
+    return load_fixture("deployment_single_response.json")
+
+
+@pytest.fixture
+def deployment_sessions_response():
+    return load_fixture("deployment_sessions_response.json")
+
+
+@pytest.fixture
+def warnings_response():
+    return load_fixture("warnings_response.json")
+
+
+@pytest.fixture
 def error_401():
     return load_fixture("error_401.json")
 

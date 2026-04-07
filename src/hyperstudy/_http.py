@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from typing import Any
 
 import requests
@@ -124,5 +125,9 @@ class HttpTransport:
                 resp.reason or f"HTTP {resp.status_code}",
                 status_code=resp.status_code,
             )
+
+        # Surface API warnings (e.g. missing Firestore indexes)
+        for w in body.get("metadata", {}).get("_warnings", []):
+            warnings.warn(w, stacklevel=4)
 
         return body

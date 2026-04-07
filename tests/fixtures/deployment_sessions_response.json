@@ -1,0 +1,26 @@
+{
+  "status": "success",
+  "metadata": {
+    "dataType": "sessions",
+    "scope": "deployment",
+    "scopeId": "dep_001"
+  },
+  "data": [
+    {
+      "id": "room_001",
+      "experimentId": "exp_abc123",
+      "deploymentId": "dep_001",
+      "status": "completed",
+      "participantCount": 2,
+      "createdAt": "2024-06-10T14:00:00.000Z"
+    },
+    {
+      "id": "room_002",
+      "experimentId": "exp_abc123",
+      "deploymentId": "dep_001",
+      "status": "completed",
+      "participantCount": 2,
+      "createdAt": "2024-06-11T14:00:00.000Z"
+    }
+  ]
+}

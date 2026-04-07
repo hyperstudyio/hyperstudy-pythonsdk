@@ -37,15 +37,20 @@ events = hs.get_events("participant_id", scope="participant", room_id="room_id")
 All data retrieval methods follow the same pattern:
 
 ```python
-events      = hs.get_events("exp_id")
-recordings  = hs.get_recordings("exp_id")
-chat        = hs.get_chat("exp_id")
-videochat   = hs.get_videochat("exp_id")
-sync        = hs.get_sync("exp_id")
-ratings     = hs.get_ratings("exp_id", kind="continuous")
-components  = hs.get_components("exp_id")
-participants = hs.get_participants("exp_id")
-rooms       = hs.get_rooms("exp_id")
+events        = hs.get_events("exp_id")
+recordings    = hs.get_recordings("exp_id")
+chat          = hs.get_chat("exp_id")
+videochat     = hs.get_videochat("exp_id")
+sync          = hs.get_sync("exp_id")
+ratings       = hs.get_ratings("exp_id", kind="continuous")
+components    = hs.get_components("exp_id")
+participants  = hs.get_participants("exp_id")
+rooms         = hs.get_rooms("exp_id")
+
+# Convenience methods for common event categories
+questionnaire = hs.get_questionnaire("exp_id")
+instructions  = hs.get_instructions("exp_id")
+consent       = hs.get_consent("exp_id")
 ```
 
 ### Output Formats
@@ -92,11 +97,27 @@ hs.update_experiment("exp_id", name="Updated Name")
 hs.delete_experiment("exp_id")
 ```
 
+## Deployments
+
+```python
+# List deployments
+deployments = hs.list_deployments()
+deployments = hs.list_deployments(experiment_id="exp_id", status="active")
+
+# Get deployment details
+dep = hs.get_deployment("deployment_id")
+
+# List sessions/rooms for a deployment
+sessions = hs.get_deployment_sessions("deployment_id")
+```
+
 ## All Data for a Participant
 
 ```python
 data = hs.get_all_data("participant_id", room_id="room_id")
-# Returns: {"events": DataFrame, "recordings": DataFrame, "chat": DataFrame, ...}
+# Returns dict with keys: events, recordings, chat, videochat, sync,
+# ratings_continuous, ratings_sparse, components, questionnaire,
+# instructions, consent
 ```
 
 ## API Key

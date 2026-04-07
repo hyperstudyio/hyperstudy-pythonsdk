@@ -1,0 +1,28 @@
+{
+  "status": "success",
+  "metadata": {
+    "dataType": "deployments",
+    "scope": "user",
+    "scopeId": "user_abc"
+  },
+  "data": [
+    {
+      "id": "dep_001",
+      "experimentId": "exp_abc123",
+      "name": "Pilot Study",
+      "status": "active",
+      "ownerId": "user_abc",
+      "ownerName": "Test User",
+      "createdAt": "2024-06-01T10:00:00.000Z"
+    },
+    {
+      "id": "dep_002",
+      "experimentId": "exp_abc123",
+      "name": "Main Study",
+      "status": "completed",
+      "ownerId": "user_abc",
+      "ownerName": "Test User",
+      "createdAt": "2024-07-01T10:00:00.000Z"
+    }
+  ]
+}

@@ -278,6 +278,151 @@ class HyperStudy(ExperimentMixin):
         )
 
     # ------------------------------------------------------------------
+    # Convenience: category-filtered events
+    # ------------------------------------------------------------------
+
+    def get_questionnaire(
+        self,
+        scope_id: str,
+        *,
+        scope: str = "experiment",
+        room_id: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        output: str = "pandas",
+        progress: bool = True,
+    ):
+        """Fetch questionnaire responses.
+
+        Convenience wrapper around :meth:`get_events` with
+        ``category="questionnaire"``.
+        """
+        return self._fetch_data(
+            "events", scope_id,
+            scope=scope, room_id=room_id,
+            start_time=start_time, end_time=end_time,
+            category="questionnaire", sort=sort, order=order,
+            limit=limit, offset=offset,
+            output=output, progress=progress,
+        )
+
+    def get_instructions(
+        self,
+        scope_id: str,
+        *,
+        scope: str = "experiment",
+        room_id: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        output: str = "pandas",
+        progress: bool = True,
+    ):
+        """Fetch instruction / comprehension-check events.
+
+        Fetches ``pre_experiment`` events and filters to those whose
+        ``eventType`` starts with ``"instructions."``.
+        """
+        return self._fetch_and_filter(
+            "instructions.", scope_id,
+            scope=scope, room_id=room_id,
+            start_time=start_time, end_time=end_time,
+            sort=sort, order=order,
+            limit=limit, offset=offset,
+            output=output, progress=progress,
+        )
+
+    def get_consent(
+        self,
+        scope_id: str,
+        *,
+        scope: str = "experiment",
+        room_id: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        output: str = "pandas",
+        progress: bool = True,
+    ):
+        """Fetch consent events.
+
+        Fetches ``pre_experiment`` events and filters to those whose
+        ``eventType`` starts with ``"consent."``.
+        """
+        return self._fetch_and_filter(
+            "consent.", scope_id,
+            scope=scope, room_id=room_id,
+            start_time=start_time, end_time=end_time,
+            sort=sort, order=order,
+            limit=limit, offset=offset,
+            output=output, progress=progress,
+        )
+
+    # ------------------------------------------------------------------
+    # Deployments
+    # ------------------------------------------------------------------
+
+    def list_deployments(
+        self,
+        *,
+        experiment_id: str | None = None,
+        status: str | None = None,
+        output: str = "pandas",
+    ):
+        """List deployments for the authenticated user.
+
+        Args:
+            experiment_id: Filter by experiment.
+            status: Filter by deployment status.
+            output: ``"pandas"`` (default), ``"polars"``, or ``"dict"``.
+        """
+        params: dict[str, Any] = {}
+        if experiment_id:
+            params["experimentId"] = experiment_id
+        if status:
+            params["status"] = status
+
+        body = self._transport.get("deployments", params=params or None)
+        data = body.get("data", [])
+        return self._convert_output(data, output)
+
+    def get_deployment(self, deployment_id: str) -> dict[str, Any]:
+        """Get deployment details.
+
+        Returns:
+            Deployment dict.
+        """
+        body = self._transport.get(f"deployments/{deployment_id}")
+        data = body.get("data", [])
+        return data[0] if isinstance(data, list) and data else data
+
+    def get_deployment_sessions(
+        self,
+        deployment_id: str,
+        *,
+        output: str = "pandas",
+    ):
+        """List rooms/sessions for a deployment.
+
+        Args:
+            deployment_id: Deployment ID.
+            output: ``"pandas"`` (default), ``"polars"``, or ``"dict"``.
+        """
+        body = self._transport.get(f"deployments/{deployment_id}/sessions")
+        data = body.get("data", [])
+        return self._convert_output(data, output)
+
+    # ------------------------------------------------------------------
     # Convenience: all data for a participant
     # ------------------------------------------------------------------
 
@@ -300,13 +445,54 @@ class HyperStudy(ExperimentMixin):
             "chat": self.get_chat(participant_id, **common),
             "videochat": self.get_videochat(participant_id, **common),
             "sync": self.get_sync(participant_id, **common),
-            "ratings": self.get_ratings(participant_id, kind="continuous", **common),
+            "ratings_continuous": self.get_ratings(participant_id, kind="continuous", **common),
+            "ratings_sparse": self.get_ratings(participant_id, kind="sparse", **common),
             "components": self.get_components(participant_id, **common),
+            "questionnaire": self.get_questionnaire(participant_id, **common),
+            "instructions": self.get_instructions(participant_id, **common),
+            "consent": self.get_consent(participant_id, **common),
         }
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _fetch_and_filter(
+        self,
+        event_type_prefix: str,
+        scope_id: str,
+        *,
+        scope: str = "experiment",
+        room_id: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        output: str = "pandas",
+        progress: bool = True,
+    ):
+        """Fetch pre_experiment events and filter by eventType prefix.
+
+        Used by :meth:`get_instructions` and :meth:`get_consent` which
+        share the ``pre_experiment`` category but need client-side
+        filtering on the ``eventType`` field.
+        """
+        # Always fetch as dicts so we can filter before conversion
+        raw = self._fetch_data(
+            "events", scope_id,
+            scope=scope, room_id=room_id,
+            start_time=start_time, end_time=end_time,
+            category="pre_experiment", sort=sort, order=order,
+            limit=limit, offset=offset,
+            output="dict", progress=progress,
+        )
+        filtered = [
+            e for e in raw
+            if e.get("eventType", "").startswith(event_type_prefix)
+        ]
+        return self._convert_output(filtered, output)
 
     def _fetch_data(
         self,

@@ -1,0 +1,20 @@
+{
+  "status": "success",
+  "metadata": {
+    "dataType": "deployment",
+    "scope": "deployment",
+    "scopeId": "dep_001"
+  },
+  "data": {
+    "id": "dep_001",
+    "experimentId": "exp_abc123",
+    "name": "Pilot Study",
+    "status": "active",
+    "ownerId": "user_abc",
+    "ownerName": "Test User",
+    "participantCount": 24,
+    "maxParticipants": 100,
+    "createdAt": "2024-06-01T10:00:00.000Z",
+    "updatedAt": "2024-06-15T10:00:00.000Z"
+  }
+}

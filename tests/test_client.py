@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 
 import pandas as pd
 import pytest
@@ -200,22 +201,29 @@ def test_get_sync_with_aggregation(api_key, events_response):
 
 
 @responses.activate
-def test_get_all_data(api_key, events_response):
+def test_get_all_data(api_key, events_response, pre_experiment_response):
     """get_all_data returns a dict of DataFrames."""
     # Mock all data type endpoints for participant scope
     for dtype in ("events", "recordings", "chat", "videochat", "sync",
-                  "ratings/continuous", "components"):
+                  "ratings/continuous", "ratings/sparse", "components"):
         responses.get(
             f"{BASE_URL}/data/{dtype}/participant/user_1",
             json=events_response,
             status=200,
         )
+    # Questionnaire, instructions, consent all hit the events endpoint
+    # with different category params — responses matches by URL, so we
+    # need a single mock for the events endpoint that handles all calls.
+    # The events endpoint is already mocked above, so the category-filtered
+    # calls will also match it.
     client = HyperStudy(api_key=api_key, base_url=BASE_URL)
     result = client.get_all_data("user_1", room_id="room_xyz")
 
     assert isinstance(result, dict)
     assert set(result.keys()) == {
-        "events", "recordings", "chat", "videochat", "sync", "ratings", "components"
+        "events", "recordings", "chat", "videochat", "sync",
+        "ratings_continuous", "ratings_sparse", "components",
+        "questionnaire", "instructions", "consent",
     }
     for v in result.values():
         assert isinstance(v, pd.DataFrame)
@@ -263,3 +271,162 @@ def test_invalid_scope_raises_value_error(api_key):
     client = HyperStudy(api_key=api_key, base_url=BASE_URL)
     with pytest.raises(ValueError, match="invalid"):
         client.get_events("exp_abc123", scope="invalid", limit=100)
+
+
+# ------------------------------------------------------------------
+# Convenience methods — questionnaire, instructions, consent
+# ------------------------------------------------------------------
+
+
+@responses.activate
+def test_get_questionnaire(api_key, events_response):
+    """get_questionnaire passes category=questionnaire in the URL."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_questionnaire("exp_abc123", limit=1000)
+    assert isinstance(df, pd.DataFrame)
+    assert "category=questionnaire" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_get_instructions_filters_by_event_type(api_key, pre_experiment_response):
+    """get_instructions fetches pre_experiment events and filters to instructions."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=pre_experiment_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_instructions("exp_abc123", limit=1000)
+
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2  # 2 instruction events out of 4 pre_experiment
+    assert "category=pre_experiment" in responses.calls[0].request.url
+    assert all(et.startswith("instructions.") for et in df["eventType"])
+
+
+@responses.activate
+def test_get_consent_filters_by_event_type(api_key, pre_experiment_response):
+    """get_consent fetches pre_experiment events and filters to consent."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=pre_experiment_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_consent("exp_abc123", limit=1000)
+
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2  # 2 consent events out of 4 pre_experiment
+    assert all(et.startswith("consent.") for et in df["eventType"])
+
+
+@responses.activate
+def test_get_instructions_dict_output(api_key, pre_experiment_response):
+    """get_instructions with output='dict' returns filtered list."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=pre_experiment_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    data = client.get_instructions("exp_abc123", output="dict", limit=1000)
+
+    assert isinstance(data, list)
+    assert len(data) == 2
+    assert all(e["eventType"].startswith("instructions.") for e in data)
+
+
+# ------------------------------------------------------------------
+# Deployments
+# ------------------------------------------------------------------
+
+
+@responses.activate
+def test_list_deployments(api_key, deployments_list_response):
+    """list_deployments hits /deployments and returns a DataFrame."""
+    responses.get(
+        f"{BASE_URL}/deployments",
+        json=deployments_list_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.list_deployments()
+
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2
+    assert "dep_001" in df["id"].values
+
+
+@responses.activate
+def test_list_deployments_with_filters(api_key, deployments_list_response):
+    """list_deployments passes experiment_id and status as query params."""
+    responses.get(
+        f"{BASE_URL}/deployments",
+        json=deployments_list_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    client.list_deployments(experiment_id="exp_abc123", status="active")
+
+    url = responses.calls[0].request.url
+    assert "experimentId=exp_abc123" in url
+    assert "status=active" in url
+
+
+@responses.activate
+def test_get_deployment(api_key, deployment_single_response):
+    """get_deployment returns a single deployment dict."""
+    responses.get(
+        f"{BASE_URL}/deployments/dep_001",
+        json=deployment_single_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    result = client.get_deployment("dep_001")
+
+    assert isinstance(result, dict)
+    assert result["id"] == "dep_001"
+    assert result["name"] == "Pilot Study"
+
+
+@responses.activate
+def test_get_deployment_sessions(api_key, deployment_sessions_response):
+    """get_deployment_sessions returns sessions as a DataFrame."""
+    responses.get(
+        f"{BASE_URL}/deployments/dep_001/sessions",
+        json=deployment_sessions_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_deployment_sessions("dep_001")
+
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2
+    assert "room_001" in df["id"].values
+
+
+# ------------------------------------------------------------------
+# API warnings
+# ------------------------------------------------------------------
+
+
+@responses.activate
+def test_api_warnings_surfaced(api_key, warnings_response):
+    """API _warnings in metadata are surfaced via Python warnings."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=warnings_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        client.get_events("exp_abc123", limit=1000)
+
+    assert len(caught) == 1
+    assert "MISSING_INDEX" in str(caught[0].message)

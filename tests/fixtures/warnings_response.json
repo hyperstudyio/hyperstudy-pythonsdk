@@ -1,0 +1,19 @@
+{
+  "status": "success",
+  "metadata": {
+    "dataType": "events",
+    "scope": "experiment",
+    "scopeId": "exp_abc123",
+    "pagination": {
+      "total": 0,
+      "returned": 0,
+      "hasMore": false,
+      "limit": 1000,
+      "offset": 0
+    },
+    "_warnings": [
+      "MISSING_INDEX: Query for experiment/exp_abc123 requires a composite Firestore index. Results may be incomplete."
+    ]
+  },
+  "data": []
+}

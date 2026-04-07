@@ -5,10 +5,35 @@ on:
     types: [published]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install -e ".[dev,polars]"
+
+      - name: Lint
+        run: ruff check src/
+
+      - name: Run tests
+        run: pytest --cov=hyperstudy --cov-report=term-missing -v
+
   publish:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+      attestations: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -23,5 +48,12 @@ jobs:
       - name: Build package
         run: python -m build
 
+      - name: Generate Sigstore attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
