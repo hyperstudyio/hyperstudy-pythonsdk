@@ -138,6 +138,48 @@ def test_get_events_with_filters(api_key, events_response):
     assert "limit=100" in url
 
 
+@responses.activate
+def test_get_events_with_deployment_id(api_key, events_response):
+    """get_events passes deploymentId query param when deployment_id is set."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    client.get_events("exp_abc123", deployment_id="dep_xyz", limit=100)
+    url = responses.calls[0].request.url
+    assert "deploymentId=dep_xyz" in url
+
+
+@responses.activate
+def test_get_participants_with_deployment_id(api_key, events_response):
+    """get_participants passes deploymentId query param."""
+    responses.get(
+        f"{BASE_URL}/data/participants/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    client.get_participants("exp_abc123", deployment_id="dep_xyz", limit=100)
+    url = responses.calls[0].request.url
+    assert "deploymentId=dep_xyz" in url
+
+
+@responses.activate
+def test_deployment_id_omitted_when_none(api_key, events_response):
+    """deployment_id=None should not add deploymentId to query params."""
+    responses.get(
+        f"{BASE_URL}/data/events/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    client.get_events("exp_abc123", limit=100)
+    url = responses.calls[0].request.url
+    assert "deploymentId" not in url
+
+
 # ------------------------------------------------------------------
 # Data retrieval — other types
 # ------------------------------------------------------------------

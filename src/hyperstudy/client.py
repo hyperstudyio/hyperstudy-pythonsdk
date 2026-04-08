@@ -55,6 +55,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -71,6 +72,7 @@ class HyperStudy(ExperimentMixin):
         Args:
             scope_id: ID of the experiment, room, or participant.
             scope: ``"experiment"``, ``"room"``, or ``"participant"``.
+            deployment_id: Filter by deployment (experiment scope only).
             room_id: Required when ``scope="participant"``.
             start_time: ISO 8601 start filter.
             end_time: ISO 8601 end filter.
@@ -84,7 +86,7 @@ class HyperStudy(ExperimentMixin):
         """
         return self._fetch_data(
             "events", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             start_time=start_time, end_time=end_time,
             category=category, sort=sort, order=order,
             limit=limit, offset=offset,
@@ -96,6 +98,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         limit: int | None = None,
         offset: int = 0,
@@ -105,7 +108,7 @@ class HyperStudy(ExperimentMixin):
         """Fetch video/audio recording metadata."""
         return self._fetch_data(
             "recordings", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             limit=limit, offset=offset,
             output=output, progress=progress,
         )
@@ -115,6 +118,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -128,7 +132,7 @@ class HyperStudy(ExperimentMixin):
         """Fetch text chat messages."""
         return self._fetch_data(
             "chat", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             start_time=start_time, end_time=end_time,
             sort=sort, order=order,
             limit=limit, offset=offset,
@@ -140,6 +144,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -153,7 +158,7 @@ class HyperStudy(ExperimentMixin):
         """Fetch LiveKit video chat connection data."""
         return self._fetch_data(
             "videochat", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             start_time=start_time, end_time=end_time,
             sort=sort, order=order,
             limit=limit, offset=offset,
@@ -165,6 +170,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -182,7 +188,7 @@ class HyperStudy(ExperimentMixin):
             extra["aggregationWindow"] = aggregation_window
         return self._fetch_data(
             "sync", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             start_time=start_time, end_time=end_time,
             sort=sort, order=order,
             limit=limit, offset=offset,
@@ -196,6 +202,7 @@ class HyperStudy(ExperimentMixin):
         *,
         kind: str = "continuous",
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -214,7 +221,7 @@ class HyperStudy(ExperimentMixin):
         """
         return self._fetch_data(
             f"ratings/{kind}", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             start_time=start_time, end_time=end_time,
             sort=sort, order=order,
             limit=limit, offset=offset,
@@ -226,6 +233,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         limit: int | None = None,
         offset: int = 0,
@@ -235,7 +243,7 @@ class HyperStudy(ExperimentMixin):
         """Fetch component response data."""
         return self._fetch_data(
             "components", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             limit=limit, offset=offset,
             output=output, progress=progress,
         )
@@ -245,6 +253,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         limit: int | None = None,
         offset: int = 0,
@@ -254,7 +263,7 @@ class HyperStudy(ExperimentMixin):
         """Fetch participant data."""
         return self._fetch_data(
             "participants", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             limit=limit, offset=offset,
             output=output, progress=progress,
         )
@@ -264,6 +273,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         limit: int | None = None,
         offset: int = 0,
         output: str = "pandas",
@@ -272,7 +282,7 @@ class HyperStudy(ExperimentMixin):
         """Fetch room/session data."""
         return self._fetch_data(
             "rooms", scope_id,
-            scope=scope,
+            scope=scope, deployment_id=deployment_id,
             limit=limit, offset=offset,
             output=output, progress=progress,
         )
@@ -286,6 +296,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -303,7 +314,7 @@ class HyperStudy(ExperimentMixin):
         """
         return self._fetch_data(
             "events", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             start_time=start_time, end_time=end_time,
             category="questionnaire", sort=sort, order=order,
             limit=limit, offset=offset,
@@ -315,6 +326,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -332,7 +344,7 @@ class HyperStudy(ExperimentMixin):
         """
         return self._fetch_and_filter(
             "instructions.", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             start_time=start_time, end_time=end_time,
             sort=sort, order=order,
             limit=limit, offset=offset,
@@ -344,6 +356,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -361,7 +374,7 @@ class HyperStudy(ExperimentMixin):
         """
         return self._fetch_and_filter(
             "consent.", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             start_time=start_time, end_time=end_time,
             sort=sort, order=order,
             limit=limit, offset=offset,
@@ -463,6 +476,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -482,7 +496,7 @@ class HyperStudy(ExperimentMixin):
         # Always fetch as dicts so we can filter before conversion
         raw = self._fetch_data(
             "events", scope_id,
-            scope=scope, room_id=room_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
             start_time=start_time, end_time=end_time,
             category="pre_experiment", sort=sort, order=order,
             limit=limit, offset=offset,
@@ -500,6 +514,7 @@ class HyperStudy(ExperimentMixin):
         scope_id: str,
         *,
         scope: str = "experiment",
+        deployment_id: str | None = None,
         room_id: str | None = None,
         start_time: str | None = None,
         end_time: str | None = None,
@@ -517,6 +532,8 @@ class HyperStudy(ExperimentMixin):
         path = f"data/{data_type}/{scope_val.value}/{scope_id}"
 
         params: dict[str, Any] = {"offset": offset}
+        if deployment_id:
+            params["deploymentId"] = deployment_id
         if room_id:
             params["roomId"] = room_id
         if start_time:
