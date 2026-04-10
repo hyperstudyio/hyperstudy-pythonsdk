@@ -225,6 +225,24 @@ def test_get_ratings_sparse(api_key, events_response):
 
 
 @responses.activate
+def test_get_ratings_sparse_flattens_data(api_key, sparse_ratings_response):
+    """Sparse ratings DataFrame contains flattened sparseRatingData columns."""
+    responses.get(
+        f"{BASE_URL}/data/ratings/sparse/experiment/exp_abc123",
+        json=sparse_ratings_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_ratings("exp_abc123", kind="sparse", limit=1000)
+    assert isinstance(df, pd.DataFrame)
+    assert "sparseRatingData_mediaPauseOnset" in df.columns
+    assert "sparseRatingData_mediaResumeOnset" in df.columns
+    assert "sparseRatingData_actualPauseDuration" in df.columns
+    assert "metadata_question" in df.columns
+    assert df["sparseRatingData_mediaPauseOnset"].iloc[0] == 8200
+
+
+@responses.activate
 def test_get_sync_with_aggregation(api_key, events_response):
     """get_sync passes aggregationWindow param."""
     responses.get(

@@ -72,6 +72,11 @@ def deployment_sessions_response():
 
 
 @pytest.fixture
+def sparse_ratings_response():
+    return load_fixture("sparse_ratings_response.json")
+
+
+@pytest.fixture
 def warnings_response():
     return load_fixture("warnings_response.json")
 

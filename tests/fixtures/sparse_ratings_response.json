@@ -1,0 +1,108 @@
+{
+  "status": "success",
+  "metadata": {
+    "dataType": "ratings",
+    "ratingType": "sparse",
+    "scope": "experiment",
+    "scopeId": "exp_abc123",
+    "timestamp": "2024-06-15T10:00:00.000Z",
+    "query": {
+      "startTime": null,
+      "endTime": null,
+      "limit": 1000,
+      "offset": 0,
+      "sort": "timestamp",
+      "order": "asc"
+    },
+    "pagination": {
+      "total": 2,
+      "returned": 2,
+      "hasMore": false,
+      "limit": 1000,
+      "offset": 0
+    },
+    "processing": {
+      "processingTimeMs": 58,
+      "enriched": true,
+      "version": "3.0.0"
+    }
+  },
+  "data": [
+    {
+      "ratingId": "rat_001",
+      "participantId": "user_1",
+      "timestamp": "2024-06-15T10:01:30.000Z",
+      "onset": 8500,
+      "rawOnset": 8520,
+      "clockOffsetApplied": 20,
+      "value": 72.5,
+      "rawValue": 58,
+      "scale": { "min": 0, "max": 80 },
+      "type": "sparse",
+      "stateId": "state_video_1",
+      "stimulusId": "video_abc",
+      "stimulusTime": 5000,
+      "responseTime": 2100,
+      "confidence": null,
+      "metadata": {
+        "question": "How engaging is this video?",
+        "dimension": "engagement",
+        "componentType": "vasrating",
+        "sampleIndex": 0
+      },
+      "ratingEndOnset": 10600,
+      "sparseRatingData": {
+        "videoId": "video_abc",
+        "pauseIndex": 0,
+        "videoRelativeTime": 5000,
+        "pauseTimestamp": 1718445690000,
+        "componentType": "vasrating",
+        "componentData": { "value": 58 },
+        "previousRatings": null,
+        "mediaPauseOnset": 8200,
+        "mediaResumeOnset": 10800,
+        "actualPauseDuration": 2600
+      },
+      "stateStartTime": "2024-06-15T10:00:00.000Z",
+      "stateDuration": 60000
+    },
+    {
+      "ratingId": "rat_002",
+      "participantId": "user_1",
+      "timestamp": "2024-06-15T10:02:45.000Z",
+      "onset": 25300,
+      "rawOnset": 25320,
+      "clockOffsetApplied": 20,
+      "value": 45.0,
+      "rawValue": 36,
+      "scale": { "min": 0, "max": 80 },
+      "type": "sparse",
+      "stateId": "state_video_1",
+      "stimulusId": "video_abc",
+      "stimulusTime": 20000,
+      "responseTime": 1800,
+      "confidence": null,
+      "metadata": {
+        "question": "How engaging is this video?",
+        "dimension": "engagement",
+        "componentType": "vasrating",
+        "sampleIndex": 1
+      },
+      "ratingEndOnset": 27100,
+      "sparseRatingData": {
+        "videoId": "video_abc",
+        "pauseIndex": 1,
+        "videoRelativeTime": 20000,
+        "pauseTimestamp": 1718445765000,
+        "componentType": "vasrating",
+        "componentData": { "value": 36 },
+        "previousRatings": { "video_abc": 58 },
+        "mediaPauseOnset": 25000,
+        "mediaResumeOnset": 27300,
+        "actualPauseDuration": 2300
+      },
+      "stateStartTime": "2024-06-15T10:00:00.000Z",
+      "stateDuration": 60000
+    }
+  ]
+}
