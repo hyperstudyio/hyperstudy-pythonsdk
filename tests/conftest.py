@@ -77,6 +77,11 @@ def sparse_ratings_response():
 
 
 @pytest.fixture
+def recordings_response():
+    return load_fixture("recordings_response.json")
+
+
+@pytest.fixture
 def warnings_response():
     return load_fixture("warnings_response.json")
 

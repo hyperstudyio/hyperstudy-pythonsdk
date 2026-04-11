@@ -1,0 +1,71 @@
+{
+  "status": "success",
+  "metadata": {
+    "dataType": "recordings",
+    "scope": "experiment",
+    "scopeId": "exp_abc123",
+    "timestamp": "2024-06-15T10:00:00.000Z",
+    "query": {
+      "limit": 1000,
+      "offset": 0,
+      "sort": "startTime",
+      "order": "asc"
+    },
+    "pagination": {
+      "total": 2,
+      "returned": 2,
+      "hasMore": false,
+      "limit": 1000,
+      "offset": 0
+    },
+    "processing": {
+      "processingTimeMs": 35,
+      "enriched": true,
+      "version": "3.0.0"
+    }
+  },
+  "data": [
+    {
+      "recordingId": "EG_video_001",
+      "egressId": "EG_video_001",
+      "participantId": "user_1",
+      "participantName": "Alice",
+      "startTime": "2024-06-15T10:00:05.000Z",
+      "endTime": "2024-06-15T10:05:05.000Z",
+      "duration": 300000,
+      "videoOffset": 500,
+      "url": "https://storage.googleapis.com/bucket/recordings/video1.mp4",
+      "downloadUrl": "https://storage.googleapis.com/bucket/recordings/video1.mp4?X-Goog-Signature=abc",
+      "fileSize": 1024,
+      "format": "mp4",
+      "status": "complete",
+      "metadata": {
+        "type": "video",
+        "recordingType": "individual",
+        "roomName": "room_1",
+        "experimentId": "exp_abc123"
+      }
+    },
+    {
+      "recordingId": "EG_audio_002",
+      "egressId": "EG_audio_002",
+      "participantId": "user_1",
+      "participantName": "Alice",
+      "startTime": "2024-06-15T10:00:05.000Z",
+      "endTime": "2024-06-15T10:05:05.000Z",
+      "duration": 300000,
+      "videoOffset": 500,
+      "url": "https://storage.googleapis.com/bucket/recordings/audio1.webm",
+      "downloadUrl": "https://storage.googleapis.com/bucket/recordings/audio1.webm?X-Goog-Signature=def",
+      "fileSize": 512,
+      "format": "webm",
+      "status": "complete",
+      "metadata": {
+        "type": "audio",
+        "recordingType": "audio",
+        "roomName": "room_1",
+        "experimentId": "exp_abc123"
+      }
+    }
+  ]
+}

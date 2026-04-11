@@ -256,6 +256,128 @@ def test_get_sync_with_aggregation(api_key, events_response):
 
 
 # ------------------------------------------------------------------
+# download_recordings
+# ------------------------------------------------------------------
+
+
+@responses.activate
+def test_download_recordings(api_key, recordings_response, tmp_path):
+    """download_recordings writes files, CSV sidecar, and returns DataFrame."""
+    # Mock the metadata API
+    responses.get(
+        f"{BASE_URL}/data/recordings/experiment/exp_abc123",
+        json=recordings_response,
+        status=200,
+    )
+    # Mock the GCS signed URL downloads
+    responses.get(
+        recordings_response["data"][0]["downloadUrl"],
+        body=b"fake video bytes",
+        status=200,
+    )
+    responses.get(
+        recordings_response["data"][1]["downloadUrl"],
+        body=b"fake audio bytes",
+        status=200,
+    )
+
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.download_recordings(
+        "exp_abc123", output_dir=str(tmp_path), progress=False
+    )
+
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2
+    assert "local_path" in df.columns
+    assert "download_status" in df.columns
+    assert list(df["download_status"]) == ["downloaded", "downloaded"]
+
+    # Files exist on disk
+    assert (tmp_path / "Alice_video_EG_video_001.mp4").exists()
+    assert (tmp_path / "Alice_audio_EG_audio_002.webm").exists()
+    assert (tmp_path / "Alice_video_EG_video_001.mp4").read_bytes() == b"fake video bytes"
+
+    # CSV sidecar written
+    assert (tmp_path / "recordings_metadata.csv").exists()
+
+
+@responses.activate
+def test_download_recordings_filter_type(api_key, recordings_response, tmp_path):
+    """recording_type filter limits downloads to matching type."""
+    responses.get(
+        f"{BASE_URL}/data/recordings/experiment/exp_abc123",
+        json=recordings_response,
+        status=200,
+    )
+    responses.get(
+        recordings_response["data"][1]["downloadUrl"],
+        body=b"audio bytes",
+        status=200,
+    )
+
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.download_recordings(
+        "exp_abc123",
+        output_dir=str(tmp_path),
+        recording_type="audio",
+        progress=False,
+    )
+
+    assert len(df) == 1
+    assert (tmp_path / "Alice_audio_EG_audio_002.webm").exists()
+    assert not (tmp_path / "Alice_video_EG_video_001.mp4").exists()
+
+
+@responses.activate
+def test_download_recordings_skip_existing(api_key, recordings_response, tmp_path):
+    """Files with matching size are skipped."""
+    responses.get(
+        f"{BASE_URL}/data/recordings/experiment/exp_abc123",
+        json=recordings_response,
+        status=200,
+    )
+    # Pre-create the video file with the expected size (1024 bytes)
+    video_path = tmp_path / "Alice_video_EG_video_001.mp4"
+    video_path.write_bytes(b"\x00" * 1024)
+
+    # Only the audio file needs a mock download URL
+    responses.get(
+        recordings_response["data"][1]["downloadUrl"],
+        body=b"\x00" * 512,
+        status=200,
+    )
+
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.download_recordings(
+        "exp_abc123", output_dir=str(tmp_path), progress=False
+    )
+
+    assert df["download_status"].iloc[0] == "skipped"
+    assert df["download_status"].iloc[1] == "downloaded"
+
+
+@responses.activate
+def test_download_recording_single(api_key, tmp_path):
+    """download_recording downloads a single file."""
+    url = "https://storage.example.com/rec.mp4"
+    responses.get(url, body=b"video data", status=200)
+
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    rec = {
+        "recordingId": "EG_001",
+        "participantName": "Bob",
+        "downloadUrl": url,
+        "format": "mp4",
+        "metadata": {"type": "video"},
+    }
+    path = client.download_recording(rec, output_dir=str(tmp_path))
+
+    assert path.exists()
+    assert path.name == "Bob_video_EG_001.mp4"
+    assert path.read_bytes() == b"video data"
+
+
+# ------------------------------------------------------------------
 # get_all_data
 # ------------------------------------------------------------------
 

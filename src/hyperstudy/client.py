@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import warnings
+from pathlib import Path
 from typing import Any
 
+from tqdm.auto import tqdm
+
 from ._dataframe import to_pandas, to_polars
+from ._downloads import build_filename, download_file, get_download_url
 from ._http import HttpTransport
 from ._pagination import fetch_all_pages
 from ._types import Scope
@@ -465,6 +470,125 @@ class HyperStudy(ExperimentMixin):
             "instructions": self.get_instructions(participant_id, **common),
             "consent": self.get_consent(participant_id, **common),
         }
+
+    # ------------------------------------------------------------------
+    # Recording downloads
+    # ------------------------------------------------------------------
+
+    def download_recording(
+        self,
+        recording: dict[str, Any],
+        output_dir: str = ".",
+    ) -> Path:
+        """Download a single recording file to disk.
+
+        Args:
+            recording: A recording dict (from ``get_recordings(output="dict")``).
+            output_dir: Directory to save the file.
+
+        Returns:
+            Path to the downloaded file.
+        """
+        url = get_download_url(recording)
+        if not url:
+            raise ValueError("Recording has no downloadUrl or url field")
+
+        dest_dir = Path(output_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = build_filename(recording)
+        dest = dest_dir / filename
+        download_file(url, dest)
+        return dest
+
+    def download_recordings(
+        self,
+        scope_id: str,
+        *,
+        output_dir: str,
+        scope: str = "experiment",
+        deployment_id: str | None = None,
+        room_id: str | None = None,
+        recording_type: str | None = None,
+        progress: bool = True,
+        skip_existing: bool = True,
+    ):
+        """Download recording files to disk.
+
+        Fetches recording metadata, downloads each file from its signed
+        URL, writes a ``recordings_metadata.csv`` sidecar, and returns a
+        DataFrame with a ``local_path`` column.
+
+        Args:
+            scope_id: Experiment, room, or participant ID.
+            output_dir: Directory to save files.
+            scope: ``"experiment"``, ``"room"``, or ``"participant"``.
+            deployment_id: Filter by deployment (experiment scope only).
+            room_id: Filter by room.
+            recording_type: ``"audio"``, ``"video"``, or ``None`` (both).
+            progress: Show progress bar.
+            skip_existing: Skip files already on disk with matching size.
+
+        Returns:
+            pandas DataFrame with recording metadata plus ``local_path``
+            and ``download_status`` columns.
+        """
+        recordings = self.get_recordings(
+            scope_id,
+            scope=scope,
+            deployment_id=deployment_id,
+            room_id=room_id,
+            output="dict",
+        )
+
+        if recording_type:
+            recordings = [
+                r for r in recordings
+                if (r.get("metadata") or {}).get("type") == recording_type
+            ]
+
+        dest_dir = Path(output_dir)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        local_paths: list[str | None] = []
+        statuses: list[str] = []
+
+        for rec in tqdm(recordings, desc="Downloading recordings", disable=not progress):
+            filename = build_filename(rec)
+            dest = dest_dir / filename
+
+            url = get_download_url(rec)
+            if not url:
+                local_paths.append(None)
+                statuses.append("failed")
+                warnings.warn(f"Recording {rec.get('recordingId')} has no download URL")
+                continue
+
+            if skip_existing and dest.exists():
+                expected_size = rec.get("fileSize")
+                if expected_size is None or dest.stat().st_size == expected_size:
+                    local_paths.append(str(dest.resolve()))
+                    statuses.append("skipped")
+                    continue
+
+            try:
+                download_file(url, dest)
+                local_paths.append(str(dest.resolve()))
+                statuses.append("downloaded")
+            except Exception as exc:
+                local_paths.append(None)
+                statuses.append("failed")
+                warnings.warn(
+                    f"Failed to download recording {rec.get('recordingId')}: {exc}"
+                )
+
+        df = to_pandas(recordings)
+        if not df.empty:
+            df["local_path"] = local_paths
+            df["download_status"] = statuses
+            df.to_csv(dest_dir / "recordings_metadata.csv", index=False)
+
+        return df
 
     # ------------------------------------------------------------------
     # Internal helpers
