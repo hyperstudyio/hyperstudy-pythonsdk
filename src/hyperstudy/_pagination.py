@@ -16,6 +16,7 @@ def fetch_all_pages(
     *,
     page_size: int = 1000,
     progress: bool = True,
+    timeout: int | float | None = None,
 ) -> tuple[list[dict], dict]:
     """Fetch every page of a paginated endpoint.
 
@@ -28,7 +29,7 @@ def fetch_all_pages(
     params.setdefault("offset", 0)
 
     # First request to learn total
-    body = transport.get(path, params=params)
+    body = transport.get(path, params=params, timeout=timeout)
     metadata = body.get("metadata", {})
     pagination = metadata.get("pagination", {})
     total = pagination.get("total", 0)
@@ -43,7 +44,7 @@ def fetch_all_pages(
     while has_more:
         params["offset"] = pagination.get("nextOffset", params["offset"] + page_size)
 
-        body = transport.get(path, params=params)
+        body = transport.get(path, params=params, timeout=timeout)
         metadata = body.get("metadata", {})
         pagination = metadata.get("pagination", {})
 

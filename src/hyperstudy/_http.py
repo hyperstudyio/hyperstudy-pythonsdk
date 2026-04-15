@@ -63,8 +63,14 @@ class HttpTransport:
     # Public helpers
     # ------------------------------------------------------------------
 
-    def get(self, path: str, params: dict[str, Any] | None = None) -> dict:
-        return self._request("GET", path, params=params)
+    def get(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        *,
+        timeout: int | float | None = None,
+    ) -> dict:
+        return self._request("GET", path, params=params, timeout=timeout)
 
     def post(self, path: str, json: dict[str, Any] | None = None) -> dict:
         return self._request("POST", path, json=json)
@@ -81,7 +87,8 @@ class HttpTransport:
 
     def _request(self, method: str, path: str, **kwargs) -> dict:
         url = f"{self.base_url}/{path.lstrip('/')}"
-        kwargs.setdefault("timeout", self.timeout)
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = self.timeout
 
         resp = self._session.request(method, url, **kwargs)
         return self._handle_response(resp)

@@ -357,6 +357,141 @@ def test_download_recordings_skip_existing(api_key, recordings_response, tmp_pat
 
 
 @responses.activate
+def test_download_recordings_skip_requires_known_size(
+    api_key, recordings_response, tmp_path
+):
+    """When server-side fileSize is missing, skip_existing must NOT accept a
+    stale on-disk file — it must re-download so truncated prior attempts
+    don't linger forever."""
+    # Strip fileSize from the video record to simulate older recordings where
+    # the backend didn't store file size metadata.
+    recordings_response["data"][0]["fileSize"] = None
+
+    responses.get(
+        f"{BASE_URL}/data/recordings/experiment/exp_abc123",
+        json=recordings_response,
+        status=200,
+    )
+
+    # Pre-create a (probably partial) video file on disk.
+    video_path = tmp_path / "Alice_video_EG_video_001.mp4"
+    video_path.write_bytes(b"stale-partial-content")
+
+    fresh_video = b"freshly downloaded video bytes" * 20
+    responses.get(
+        recordings_response["data"][0]["downloadUrl"],
+        body=fresh_video,
+        status=200,
+    )
+    responses.get(
+        recordings_response["data"][1]["downloadUrl"],
+        body=b"audio",
+        status=200,
+    )
+
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.download_recordings(
+        "exp_abc123", output_dir=str(tmp_path), progress=False, skip_existing=True
+    )
+
+    assert df["download_status"].iloc[0] == "downloaded"
+    assert video_path.read_bytes() == fresh_video
+
+
+def test_download_recordings_list_call_uses_long_timeout(
+    api_key, recordings_response, monkeypatch, tmp_path
+):
+    """The recordings-list call must use a longer timeout than the default
+    30s API timeout, because signing many GCS URLs on the backend can easily
+    push the listing latency past that."""
+    captured_timeouts = []
+
+    class FakeResp:
+        status_code = 200
+        ok = True
+        reason = "OK"
+
+        def json(self):
+            return recordings_response
+
+    def fake_request(method, url, **kwargs):
+        captured_timeouts.append(kwargs.get("timeout"))
+        return FakeResp()
+
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL, timeout=30)
+    monkeypatch.setattr(client._transport._session, "request", fake_request)
+
+    # Stub downloads so we don't need HTTP mocks for the signed URLs.
+    import hyperstudy.client as client_mod
+
+    monkeypatch.setattr(
+        client_mod, "download_file", lambda url, dest, **kw: dest.write_bytes(b"") or 0
+    )
+
+    client.download_recordings(
+        "exp_abc123", output_dir=str(tmp_path), progress=False, skip_existing=False
+    )
+
+    assert captured_timeouts, "no list call was made"
+    # First captured timeout is the recordings-list call.
+    assert captured_timeouts[0] is not None and captured_timeouts[0] >= 300, (
+        f"expected list-call timeout >= 300s, got {captured_timeouts[0]}"
+    )
+
+
+@responses.activate
+def test_download_recordings_raises_clear_error_on_list_failure(api_key, tmp_path):
+    """A failure fetching recording metadata must surface a HyperStudyError
+    that names the failing phase. Previously a bare ReadTimeout/ServerError
+    leaked out, giving users no hint whether the list or a download failed."""
+    from hyperstudy.exceptions import HyperStudyError
+
+    responses.get(
+        f"{BASE_URL}/data/recordings/experiment/exp_abc123",
+        status=504,
+        json={
+            "status": "error",
+            "error": {"code": "GATEWAY_TIMEOUT", "message": "upstream timeout"},
+        },
+    )
+
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    with pytest.raises(HyperStudyError, match="[Ll]ist recordings"):
+        client.download_recordings("exp_abc123", output_dir=str(tmp_path), progress=False)
+
+
+@responses.activate
+def test_download_recordings_warns_summary_on_partial_failure(
+    api_key, recordings_response, tmp_path
+):
+    """When some files fail to download, a single summary warning must
+    surface so interactive users see the failure count at a glance."""
+    responses.get(
+        f"{BASE_URL}/data/recordings/experiment/exp_abc123",
+        json=recordings_response,
+        status=200,
+    )
+    # Video download fails with 404; audio succeeds.
+    responses.get(recordings_response["data"][0]["downloadUrl"], status=404)
+    responses.get(
+        recordings_response["data"][1]["downloadUrl"], body=b"audio", status=200
+    )
+
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        df = client.download_recordings(
+            "exp_abc123", output_dir=str(tmp_path), progress=False
+        )
+
+    messages = [str(w.message) for w in caught]
+    assert any("1" in m and "2" in m and "failed" in m.lower() for m in messages), (
+        f"expected a '1/2 failed' summary warning, got: {messages}"
+    )
+    assert list(df["download_status"]) == ["failed", "downloaded"]
+
+
+@responses.activate
 def test_download_recording_single(api_key, tmp_path):
     """download_recording downloads a single file."""
     url = "https://storage.example.com/rec.mp4"
