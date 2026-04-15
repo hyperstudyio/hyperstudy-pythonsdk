@@ -13,6 +13,7 @@ from ._downloads import build_filename, download_file, get_download_url
 from ._http import HttpTransport
 from ._pagination import fetch_all_pages
 from ._types import Scope
+from .exceptions import HyperStudyError
 from .experiments import ExperimentMixin
 
 
@@ -533,13 +534,24 @@ class HyperStudy(ExperimentMixin):
             pandas DataFrame with recording metadata plus ``local_path``
             and ``download_status`` columns.
         """
-        recordings = self.get_recordings(
-            scope_id,
-            scope=scope,
-            deployment_id=deployment_id,
-            room_id=room_id,
-            output="dict",
-        )
+        try:
+            # Signing per-recording GCS URLs scales with count; 30s default is too short.
+            recordings = self._fetch_data(
+                "recordings",
+                scope_id,
+                scope=scope,
+                deployment_id=deployment_id,
+                room_id=room_id,
+                output="dict",
+                timeout=300,
+            )
+        except Exception as exc:
+            raise HyperStudyError(
+                f"Failed to list recordings for {scope}={scope_id!r}: {exc}",
+                code=getattr(exc, "code", "LIST_RECORDINGS_FAILED"),
+                status_code=getattr(exc, "status_code", None),
+                details=getattr(exc, "details", None),
+            ) from exc
 
         if recording_type:
             recordings = [
@@ -566,7 +578,9 @@ class HyperStudy(ExperimentMixin):
 
             if skip_existing and dest.exists():
                 expected_size = rec.get("fileSize")
-                if expected_size is None or dest.stat().st_size == expected_size:
+                # Require positive size match; missing size → re-download to
+                # avoid trusting a truncated file from a prior failed run.
+                if expected_size is not None and dest.stat().st_size == expected_size:
                     local_paths.append(str(dest.resolve()))
                     statuses.append("skipped")
                     continue
@@ -581,6 +595,13 @@ class HyperStudy(ExperimentMixin):
                 warnings.warn(
                     f"Failed to download recording {rec.get('recordingId')}: {exc}"
                 )
+
+        failed_count = sum(1 for s in statuses if s == "failed")
+        if failed_count:
+            warnings.warn(
+                f"{failed_count}/{len(recordings)} recordings failed to download; "
+                "see the 'download_status' column for per-file results."
+            )
 
         df = to_pandas(recordings)
         if not df.empty:
@@ -649,6 +670,7 @@ class HyperStudy(ExperimentMixin):
         offset: int = 0,
         output: str = "pandas",
         progress: bool = True,
+        timeout: int | float | None = None,
         **extra_params,
     ):
         """Generic data-fetching logic shared by all ``get_*`` methods."""
@@ -675,11 +697,15 @@ class HyperStudy(ExperimentMixin):
         # Single page or all pages
         if limit is not None:
             params["limit"] = limit
-            body = self._transport.get(path, params=params)
+            body = self._transport.get(path, params=params, timeout=timeout)
             data = body.get("data", [])
         else:
             data, _ = fetch_all_pages(
-                self._transport, path, params=params, progress=progress
+                self._transport,
+                path,
+                params=params,
+                progress=progress,
+                timeout=timeout,
             )
 
         return self._convert_output(data, output)

@@ -38,13 +38,39 @@ def build_filename(recording: dict[str, Any]) -> str:
 
 
 def download_file(url: str, dest: Path, timeout: int = 300) -> int:
-    """Stream-download *url* to *dest* and return bytes written."""
+    """Stream-download *url* to *dest* and return bytes written.
+
+    Verifies ``Content-Length`` (when the server provides it) against bytes
+    actually written. On any error — HTTP, mid-stream disconnect, or length
+    mismatch — the partial file on disk is removed so ``skip_existing``
+    logic won't mistake it for a complete download on retry.
+    """
     resp = requests.get(url, stream=True, timeout=timeout)
     resp.raise_for_status()
 
+    expected: int | None
+    if "Content-Length" in resp.headers:
+        try:
+            expected = int(resp.headers["Content-Length"])
+        except (TypeError, ValueError):
+            expected = None
+    else:
+        expected = None
+
     written = 0
-    with open(dest, "wb") as fh:
-        for chunk in resp.iter_content(chunk_size=_CHUNK_SIZE):
-            fh.write(chunk)
-            written += len(chunk)
+    # BaseException so Ctrl-C also cleans up, not just exceptions.
+    try:
+        with open(dest, "wb") as fh:
+            for chunk in resp.iter_content(chunk_size=_CHUNK_SIZE):
+                fh.write(chunk)
+                written += len(chunk)
+
+        if expected is not None and written != expected:
+            raise IOError(
+                f"Truncated download: wrote {written} of {expected} bytes for {dest.name}"
+            )
+    except BaseException:
+        dest.unlink(missing_ok=True)
+        raise
+
     return written

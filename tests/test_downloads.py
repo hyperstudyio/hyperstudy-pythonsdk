@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import responses
 import pytest
+import responses
 
 from hyperstudy._downloads import build_filename, download_file
-
 
 # ------------------------------------------------------------------
 # build_filename
@@ -103,3 +102,87 @@ def test_download_file_raises_on_error(tmp_path):
     dest = tmp_path / "output.mp4"
     with pytest.raises(Exception):
         download_file(url, dest)
+
+
+@responses.activate
+def test_download_file_detects_content_length_mismatch(tmp_path):
+    """If the response ends with fewer bytes than Content-Length advertised,
+    an error must propagate AND the partial file must be removed so it can't
+    be mistaken for a complete download on retry."""
+    url = "https://storage.example.com/truncated.mp4"
+    short_body = b"only-1kb" * 128  # 1024 bytes
+    # Lie about the length: claim 10x larger than what we send.
+    responses.get(
+        url,
+        body=short_body,
+        status=200,
+        headers={"Content-Length": str(len(short_body) * 10)},
+    )
+
+    dest = tmp_path / "truncated.mp4"
+    with pytest.raises(Exception):
+        download_file(url, dest)
+
+    assert not dest.exists(), "partial file must be deleted on truncation"
+
+
+def test_download_file_raises_on_short_body_without_protocol_error(tmp_path, monkeypatch):
+    """Guards the explicit Content-Length check: when the HTTP layer itself
+    does NOT detect a short body (e.g. server closes cleanly after fewer
+    bytes than advertised), download_file must still raise and clean up."""
+
+    class ShortResponse:
+        status_code = 200
+        headers = {"Content-Length": "1000"}
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            # Deliberately yield fewer bytes than Content-Length claims,
+            # then stop cleanly — urllib3 won't notice.
+            yield b"x" * 10
+
+    import hyperstudy._downloads as downloads_mod
+
+    monkeypatch.setattr(
+        downloads_mod.requests, "get", lambda *a, **kw: ShortResponse()
+    )
+
+    dest = tmp_path / "short.mp4"
+    with pytest.raises(IOError, match="[Tt]runcated"):
+        download_file("https://example.com/short.mp4", dest)
+
+    assert not dest.exists()
+
+
+@responses.activate
+def test_download_file_cleans_up_on_stream_error(tmp_path):
+    """If iter_content raises mid-stream, the partial file must be removed."""
+    url = "https://storage.example.com/explode.mp4"
+
+    class ExplodingResponse:
+        status_code = 200
+        headers: dict = {}
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            yield b"first-chunk"
+            raise ConnectionError("simulated network drop")
+
+    import hyperstudy._downloads as downloads_mod
+
+    def fake_get(url, stream, timeout):  # noqa: ARG001
+        return ExplodingResponse()
+
+    original = downloads_mod.requests.get
+    downloads_mod.requests.get = fake_get
+    try:
+        dest = tmp_path / "explode.mp4"
+        with pytest.raises(ConnectionError):
+            download_file(url, dest)
+        assert not dest.exists(), "partial file must be deleted on mid-stream error"
+    finally:
+        downloads_mod.requests.get = original
