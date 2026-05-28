@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
-import responses
-
-from hyperstudy import HyperStudy
-from hyperstudy._display import ExperimentInfo
-from hyperstudy.exceptions import NotFoundError
+import json
 
 import pytest
+import responses
+
+from hyperstudy import (
+    Experiment,
+    HyperStudy,
+    Role,
+    State,
+    show_text,
+)
+from hyperstudy._display import ExperimentInfo
+from hyperstudy.exceptions import NotFoundError
 
 BASE_URL = "https://api.hyperstudy.io/api/v3"
 
@@ -178,6 +185,200 @@ def test_delete_experiment_skip_data_check():
     client.delete_experiment("exp_abc123", skip_data_check=True)
 
     assert "skipDataCheck=true" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_create_experiment_with_builder():
+    """Passing an Experiment object posts the snake→camel-converted payload."""
+    create_response = {
+        "status": "success",
+        "metadata": {"dataType": "experiment", "scope": "experiment", "scopeId": "exp_b"},
+        "data": [{"id": "exp_b", "name": "Builder Study"}],
+    }
+    responses.post(
+        f"{BASE_URL}/experiments",
+        json=create_response,
+        status=201,
+    )
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    exp = Experiment(
+        name="Builder Study",
+        required_participants=2,
+        states=[State(id="s1", focus_component=show_text("Hi", id="ft1"))],
+        roles={"speaker": Role(name="Speaker", participant_count=1)},
+    )
+    info = client.create_experiment(experiment=exp)
+
+    assert isinstance(info, ExperimentInfo)
+    assert info["id"] == "exp_b"
+
+    body = json.loads(responses.calls[0].request.body)
+    assert body == {
+        "name": "Builder Study",
+        "requiredParticipants": 2,
+        "states": [
+            {
+                "id": "s1",
+                "focusComponent": {
+                    "type": "showtext",
+                    "config": {"text": "Hi"},
+                    "id": "ft1",
+                },
+            }
+        ],
+        "roles": {"speaker": {"name": "Speaker", "participantCount": 1}},
+    }
+
+
+@responses.activate
+def test_create_experiment_kwarg_overrides_builder():
+    """Explicit kwargs win when both `experiment=` and `**kwargs` are given."""
+    create_response = {
+        "status": "success",
+        "metadata": {"dataType": "experiment"},
+        "data": [{"id": "exp_o", "name": "Override"}],
+    }
+    responses.post(
+        f"{BASE_URL}/experiments",
+        json=create_response,
+        status=201,
+    )
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    client.create_experiment(
+        experiment=Experiment(name="Original"),
+        name="Override",
+    )
+    body = json.loads(responses.calls[0].request.body)
+    assert body["name"] == "Override"
+
+
+@responses.activate
+def test_snake_case_kwarg_overrides_renamed_builder_field():
+    """A snake_case kwarg must override the corresponding camelCase wire key.
+
+    Regression for the case where the builder dumps `requiredParticipants`
+    (camelCase via alias) and the kwarg is `required_participants` (snake).
+    Naive merging would leave both keys on the wire; the helper must
+    translate snake → camel before merging.
+    """
+    create_response = {
+        "status": "success",
+        "metadata": {"dataType": "experiment"},
+        "data": [{"id": "exp_x", "name": "X"}],
+    }
+    responses.post(f"{BASE_URL}/experiments", json=create_response, status=201)
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    client.create_experiment(
+        experiment=Experiment(name="X", required_participants=2),
+        required_participants=5,
+    )
+    body = json.loads(responses.calls[0].request.body)
+    assert body["requiredParticipants"] == 5
+    assert "required_participants" not in body, (
+        "snake_case key leaked to the wire; "
+        "_build_experiment_payload should translate kwargs through to_camel"
+    )
+
+
+def test_create_experiment_requires_name():
+    """create_experiment raises TypeError when neither name nor experiment supplied."""
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    with pytest.raises(TypeError, match="requires a 'name'"):
+        client.create_experiment()
+
+
+@responses.activate
+def test_update_experiment_with_builder():
+    """update_experiment accepts an Experiment object."""
+    update_response = {
+        "status": "success",
+        "metadata": {"dataType": "experiment"},
+        "data": [{"id": "exp_abc123", "updated": True}],
+    }
+    responses.put(
+        f"{BASE_URL}/experiments/exp_abc123",
+        json=update_response,
+        status=200,
+    )
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    client.update_experiment(
+        "exp_abc123",
+        experiment=Experiment(name="Renamed", description="New desc"),
+    )
+
+    body = json.loads(responses.calls[0].request.body)
+    assert body == {"name": "Renamed", "description": "New desc"}
+
+
+@responses.activate
+def test_validate_experiment():
+    """validate_experiment POSTs to /experiments/validate."""
+    validate_response = {
+        "status": "success",
+        "metadata": {"dataType": "experiment"},
+        "data": [{"valid": True}],
+    }
+    responses.post(
+        f"{BASE_URL}/experiments/validate",
+        json=validate_response,
+        status=200,
+    )
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    result = client.validate_experiment(Experiment(name="Check me"))
+
+    assert result == {"valid": True}
+    body = json.loads(responses.calls[0].request.body)
+    assert body == {"name": "Check me"}
+
+
+def test_validate_experiment_rejects_none():
+    """validate_experiment(None) raises rather than silently POSTing an empty body."""
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    with pytest.raises(TypeError, match="requires an Experiment or dict"):
+        client.validate_experiment(None)  # type: ignore[arg-type]
+
+
+def test_build_payload_rejects_non_dict_non_model():
+    """_build_experiment_payload rejects unsupported types instead of silently dict()ing them."""
+    from hyperstudy.experiments import _build_experiment_payload
+
+    with pytest.raises(TypeError, match="must be an Experiment or dict"):
+        _build_experiment_payload("not a dict")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="must be an Experiment or dict"):
+        _build_experiment_payload([("name", "x")])  # type: ignore[arg-type]
+
+
+def test_update_experiment_experiment_is_keyword_only():
+    """`experiment=` must be a keyword arg — second positional should raise."""
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    with pytest.raises(TypeError):
+        client.update_experiment("exp_id", Experiment(name="x"))  # type: ignore[misc]
+
+
+def test_create_experiment_experiment_is_keyword_only():
+    """`experiment=` must be a keyword arg in create_experiment too."""
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    with pytest.raises(TypeError):
+        client.create_experiment(Experiment(name="x"))  # type: ignore[misc]
+
+
+@responses.activate
+def test_validate_experiment_accepts_raw_dict():
+    """validate_experiment also accepts a plain dict."""
+    validate_response = {
+        "status": "success",
+        "metadata": {"dataType": "experiment"},
+        "data": [{"valid": False, "errors": ["x"]}],
+    }
+    responses.post(
+        f"{BASE_URL}/experiments/validate",
+        json=validate_response,
+        status=200,
+    )
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    result = client.validate_experiment({"name": "raw dict"})
+
+    assert result == {"valid": False, "errors": ["x"]}
 
 
 @responses.activate

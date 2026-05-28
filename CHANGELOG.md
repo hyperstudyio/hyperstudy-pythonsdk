@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.3.0
+
+### Features
+
+- Typed experiment builders for programmatic authoring. New top-level exports: `Experiment`, `State`, `FocusComponent`, `Role`, `WaitingRoomConfig`, `DisconnectTimeout`, `InstructionsPage`, `PostExperimentQuestionnaire`, `TransitionRules`, `ComponentType`, `GlobalComponentType`. Snake_case Python fields are converted to the camelCase wire format automatically; unknown top-level fields are preserved via `extra="allow"` so the SDK doesn't block on backend schema additions.
+- Component factory helpers: `show_text`, `show_image`, `show_video`, `vas_rating`, `text_input`, `multiple_choice`, `waiting`, `likert_scale`, `ranking`. Extra kwargs pass through to the component `config` for any backend-supported field.
+- `create_experiment` and `update_experiment` now accept an `experiment=Experiment(...)` argument alongside the existing `**kwargs` form. When both are given, kwargs override builder fields.
+- New `validate_experiment(experiment)` method — dry-run against `POST /experiments/validate`.
+- Schema-drift guard test: vendored copy of `experiment.schema.json` is checked against `ComponentType` / `GlobalComponentType` / required-field declarations so backend additions surface in CI.
+
+### Backwards Compatibility
+
+- `create_experiment(name=..., **kwargs)` continues to work unchanged.
+- `update_experiment(experiment_id, **kwargs)` continues to work unchanged.
+
+### Dependencies
+
+- Adds `pydantic>=2.5`.
+
 ## v0.2.0
 
 ### Features
