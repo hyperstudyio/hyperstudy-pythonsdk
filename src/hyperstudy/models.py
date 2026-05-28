@@ -165,11 +165,17 @@ class Experiment(_Model):
 # can set any field the backend accepts without needing a new factory.
 
 
+# Across all factories, ``**extra`` is spread FIRST so factory-set config
+# keys win on collision. A user who accidentally passes the camelCase
+# version of a documented snake_case arg (e.g. ``outputVariable=`` instead
+# of ``output_variable=``) gets the factory's value, not their typo.
+
+
 def show_text(text: str, *, id: Optional[str] = None, **extra: Any) -> FocusComponent:
     """Build a ``showtext`` focus component."""
     return FocusComponent(
         type=ComponentType.SHOW_TEXT,
-        config={"text": text, **extra},
+        config={**extra, "text": text},
         id=id or _new_id(),
     )
 
@@ -178,7 +184,7 @@ def show_image(url: str, *, id: Optional[str] = None, **extra: Any) -> FocusComp
     """Build a ``showimage`` focus component."""
     return FocusComponent(
         type=ComponentType.SHOW_IMAGE,
-        config={"url": url, **extra},
+        config={**extra, "url": url},
         id=id or _new_id(),
     )
 
@@ -187,7 +193,7 @@ def show_video(url: str, *, id: Optional[str] = None, **extra: Any) -> FocusComp
     """Build a ``showvideo`` focus component."""
     return FocusComponent(
         type=ComponentType.SHOW_VIDEO,
-        config={"url": url, **extra},
+        config={**extra, "url": url},
         id=id or _new_id(),
     )
 
@@ -202,7 +208,7 @@ def vas_rating(
     """Build a ``vasrating`` (visual analog scale) focus component."""
     return FocusComponent(
         type=ComponentType.VAS_RATING,
-        config={"prompt": prompt, "outputVariable": output_variable, **extra},
+        config={**extra, "prompt": prompt, "outputVariable": output_variable},
         id=id or _new_id(),
     )
 
@@ -217,7 +223,7 @@ def text_input(
     """Build a ``textinput`` focus component."""
     return FocusComponent(
         type=ComponentType.TEXT_INPUT,
-        config={"prompt": prompt, "outputVariable": output_variable, **extra},
+        config={**extra, "prompt": prompt, "outputVariable": output_variable},
         id=id or _new_id(),
     )
 
@@ -234,10 +240,10 @@ def multiple_choice(
     return FocusComponent(
         type=ComponentType.MULTIPLE_CHOICE,
         config={
+            **extra,
             "prompt": prompt,
             "options": list(options),
             "outputVariable": output_variable,
-            **extra,
         },
         id=id or _new_id(),
     )
@@ -247,7 +253,7 @@ def waiting(duration_ms: int, *, id: Optional[str] = None, **extra: Any) -> Focu
     """Build a ``waiting`` focus component."""
     return FocusComponent(
         type=ComponentType.WAITING,
-        config={"durationMs": int(duration_ms), **extra},
+        config={**extra, "durationMs": int(duration_ms)},
         id=id or _new_id(),
     )
 
@@ -264,10 +270,10 @@ def likert_scale(
     return FocusComponent(
         type=ComponentType.LIKERT_SCALE,
         config={
+            **extra,
             "prompt": prompt,
             "outputVariable": output_variable,
             "scalePoints": int(scale_points),
-            **extra,
         },
         id=id or _new_id(),
     )
@@ -285,10 +291,10 @@ def ranking(
     return FocusComponent(
         type=ComponentType.RANKING,
         config={
+            **extra,
             "prompt": prompt,
             "options": list(options),
             "outputVariable": output_variable,
-            **extra,
         },
         id=id or _new_id(),
     )

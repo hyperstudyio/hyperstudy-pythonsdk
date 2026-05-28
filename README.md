@@ -91,11 +91,40 @@ experiments = hs.list_experiments()
 # Get details (with rich display in notebooks)
 exp = hs.get_experiment("exp_id")
 
-# Create / update / delete
+# Quick create / update / delete (kwargs form, backwards-compatible)
 new_exp = hs.create_experiment(name="My Study", description="...")
 hs.update_experiment("exp_id", name="Updated Name")
 hs.delete_experiment("exp_id")
 ```
+
+### Building experiments programmatically (0.3.0+)
+
+For full experiment definitions — states, components, roles — use the typed `Experiment` builder. Snake_case Python fields convert to the camelCase wire format automatically.
+
+```python
+from hyperstudy import Experiment, State, Role, show_text, vas_rating
+
+exp = Experiment(
+    name="Two-person study",
+    required_participants=2,
+    states=[
+        State(id="intro", focus_component=show_text("Welcome")),
+        State(
+            id="rate",
+            focus_component=vas_rating("Rate the clip", output_variable="rating"),
+        ),
+    ],
+    roles={"speaker": Role(name="Speaker", participant_count=1)},
+)
+
+# Dry-run validation against the backend.
+print(hs.validate_experiment(exp))  # → {"valid": True, ...}
+
+# Create.
+info = hs.create_experiment(experiment=exp)
+```
+
+Component factories cover `show_text`, `show_image`, `show_video`, `vas_rating`, `text_input`, `multiple_choice`, `waiting`, `likert_scale`, `ranking`. For other component types, construct directly: `FocusComponent(type=ComponentType.X, config={...})`. See the [Experiment Authoring guide](https://docs.hyperstudy.io/experimenters/api-access/experiment-authoring) for the full reference.
 
 ## Deployments
 

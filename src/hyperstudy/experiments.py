@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
+from pydantic.alias_generators import to_camel
 
 from ._display import ExperimentInfo
 from ._http import HttpTransport
@@ -24,7 +25,12 @@ def _build_experiment_payload(
     - ``dict`` → shallow copy
     - ``None`` → empty dict
 
-    ``overrides`` are merged on top (caller wins).
+    ``overrides`` are merged on top (caller wins). Snake_case keys in
+    overrides are translated to camelCase so they actually override the
+    aliased fields of the dumped ``Experiment`` (otherwise a kwarg like
+    ``required_participants=5`` would leave the builder's
+    ``requiredParticipants`` in place and ALSO add ``required_participants``
+    to the wire payload — both keys would go).
     """
     if experiment is None:
         payload: dict[str, Any] = {}
@@ -36,7 +42,8 @@ def _build_experiment_payload(
         raise TypeError(
             f"experiment must be an Experiment or dict, got {type(experiment).__name__}"
         )
-    payload.update(overrides)
+    for key, value in overrides.items():
+        payload[to_camel(key)] = value
     return payload
 
 

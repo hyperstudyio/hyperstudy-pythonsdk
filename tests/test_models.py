@@ -165,6 +165,26 @@ def test_unknown_top_level_field_preserved():
     assert wire["futureFeatureFlag"] is True
 
 
+def test_real_backend_response_round_trips():
+    """Parsing an actual backend response shape preserves all extras.
+
+    Backend responses include many server-populated audit fields
+    (`ownerId`, `createdAt`, `roomCount`, etc.) that the SDK's typed
+    shape does not declare. `extra="allow"` must accept them on
+    validate and emit them on dump, so a round-trip
+    ``Experiment.model_validate(...).model_dump(...)`` is lossless.
+    """
+    fixture = json.loads(
+        (FIXTURES / "experiment_single_response.json").read_text()
+    )
+    raw = fixture["data"][0]
+    exp = Experiment.model_validate(raw)
+    wire = exp.model_dump(by_alias=True, exclude_none=True)
+    # Every key in the original should round-trip.
+    for key, value in raw.items():
+        assert wire[key] == value, f"field {key!r} did not round-trip"
+
+
 # ---------------------------------------------------------------------------
 # Component factories
 # ---------------------------------------------------------------------------
@@ -233,6 +253,27 @@ def test_factory_passes_through_extra_config():
     """Extra kwargs land in the config dict so users can set any backend field."""
     c = show_text("Hi", id="x", fontSize=24, color="red")
     assert c.config == {"text": "Hi", "fontSize": 24, "color": "red"}
+
+
+def test_factory_keys_win_over_extras_on_collision():
+    """If an extra collides with a factory-set config key, the factory wins.
+
+    Protects against a user passing the camelCase wire form of a
+    documented snake_case arg (e.g. `outputVariable=...` instead of
+    `output_variable=...`) and silently overwriting the real value.
+    Note: collisions where the Python arg name and config key are
+    identical (e.g. `show_text(text=...)`) are blocked by Python's
+    own parameter binding — TypeError fires before the factory runs.
+    """
+    c = vas_rating(
+        "How happy?",
+        output_variable="real_value",
+        outputVariable="bogus_override",
+    )
+    assert c.config["outputVariable"] == "real_value"
+
+    c2 = waiting(3000, durationMs=9999)
+    assert c2.config["durationMs"] == 3000
 
 
 def test_factory_generates_id_when_omitted():

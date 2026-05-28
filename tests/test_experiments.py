@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import responses
 
 from hyperstudy import (
@@ -15,8 +16,6 @@ from hyperstudy import (
 )
 from hyperstudy._display import ExperimentInfo
 from hyperstudy.exceptions import NotFoundError
-
-import pytest
 
 BASE_URL = "https://api.hyperstudy.io/api/v3"
 
@@ -251,6 +250,34 @@ def test_create_experiment_kwarg_overrides_builder():
     )
     body = json.loads(responses.calls[0].request.body)
     assert body["name"] == "Override"
+
+
+@responses.activate
+def test_snake_case_kwarg_overrides_renamed_builder_field():
+    """A snake_case kwarg must override the corresponding camelCase wire key.
+
+    Regression for the case where the builder dumps `requiredParticipants`
+    (camelCase via alias) and the kwarg is `required_participants` (snake).
+    Naive merging would leave both keys on the wire; the helper must
+    translate snake → camel before merging.
+    """
+    create_response = {
+        "status": "success",
+        "metadata": {"dataType": "experiment"},
+        "data": [{"id": "exp_x", "name": "X"}],
+    }
+    responses.post(f"{BASE_URL}/experiments", json=create_response, status=201)
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    client.create_experiment(
+        experiment=Experiment(name="X", required_participants=2),
+        required_participants=5,
+    )
+    body = json.loads(responses.calls[0].request.body)
+    assert body["requiredParticipants"] == 5
+    assert "required_participants" not in body, (
+        "snake_case key leaked to the wire; "
+        "_build_experiment_payload should translate kwargs through to_camel"
+    )
 
 
 def test_create_experiment_requires_name():
