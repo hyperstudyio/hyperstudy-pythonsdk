@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hyperstudy.io/schemas/experiment.schema.json",
+  "title": "Experiment Configuration",
+  "description": "Top-level schema for HyperStudy experiment configurations. Validates structure and types. Per-component config validation is handled by componentSchemaValidator.",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name of the experiment"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional description of the experiment"
+    },
+    "requiredParticipants": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of participants required to start the experiment"
+    },
+    "randomizeStates": {
+      "type": "boolean",
+      "description": "Whether to randomize the order of states for each participant"
+    },
+    "states": {
+      "type": "array",
+      "description": "Ordered list of experiment states (screens/phases)",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique identifier for the state"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name of the state"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Order index of the state"
+          },
+          "focusComponent": {
+            "type": "object",
+            "description": "The primary component displayed in this state",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "showtext", "showimage", "showvideo", "vasrating",
+                  "textinput", "multiplechoice", "waiting", "code",
+                  "continuousrating", "videochat", "textchat",
+                  "rapidrate", "audiorecording", "sparserating",
+                  "trigger", "ranking", "scannerpulserecorder",
+                  "likertscale", "gazeoverlay"
+                ],
+                "description": "Component type identifier"
+              },
+              "config": {
+                "type": "object",
+                "description": "Component-specific configuration (validated per-component by componentSchemaValidator)"
+              }
+            }
+          },
+          "transitionRules": {
+            "type": "object",
+            "description": "Rules governing how the experiment transitions from this state",
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Transition type (e.g., 'auto', 'manual', 'timed')"
+              },
+              "durationMs": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Duration in milliseconds for timed transitions"
+              }
+            }
+          },
+          "globalComponentsVisibility": {
+            "type": "object",
+            "description": "Per-state visibility overrides for global components",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "roles": {
+      "type": "object",
+      "description": "Role definitions for multi-participant experiments",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name of the role"
+          },
+          "participantCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of participants assigned to this role"
+          }
+        }
+      }
+    },
+    "globalComponents": {
+      "type": "object",
+      "description": "Persistent components that run throughout the experiment",
+      "propertyNames": {
+        "enum": [
+          "continuousrating", "videochat", "textchat",
+          "sparserating", "scannerpulserecorder", "gazeoverlay"
+        ]
+      },
+      "additionalProperties": {
+        "type": "object",
+        "description": "Component-specific configuration"
+      }
+    },
+    "variables": {
+      "type": "object",
+      "description": "Experiment variables for dynamic content"
+    },
+    "waitingRoomConfig": {
+      "type": "object",
+      "description": "Configuration for the waiting room before experiment starts",
+      "properties": {
+        "maxWaitTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum wait time in milliseconds"
+        },
+        "countdownTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Countdown duration in milliseconds before experiment starts"
+        }
+      }
+    },
+    "disconnectTimeout": {
+      "type": "object",
+      "description": "Configuration for handling participant disconnections",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Time in milliseconds before a disconnected participant is dropped"
+        },
+        "autoReconnectDelay": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Delay in milliseconds before attempting auto-reconnect"
+        }
+      }
+    },
+    "completionScreenDurationMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Duration in milliseconds to show the completion screen"
+    },
+    "consentFormEnabled": {
+      "type": "boolean",
+      "description": "Whether a consent form is shown before the experiment"
+    },
+    "consentFormTitle": {
+      "type": "string",
+      "description": "Title of the consent form"
+    },
+    "consentFormContent": {
+      "type": "string",
+      "description": "HTML content of the consent form"
+    },
+    "instructionsEnabled": {
+      "type": "boolean",
+      "description": "Whether instructions are shown before the experiment"
+    },
+    "instructionsTitle": {
+      "type": "string",
+      "description": "Title of the instructions page"
+    },
+    "instructionsContent": {
+      "type": "string",
+      "description": "HTML content of the instructions"
+    },
+    "instructionsPages": {
+      "type": "array",
+      "description": "Multi-page instructions",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "postExperimentQuestionnaire": {
+      "type": "object",
+      "description": "Post-experiment questionnaire configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}
