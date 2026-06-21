@@ -60,6 +60,7 @@ class ExperimentMixin:
         self,
         *,
         search: str | None = None,
+        view: str | None = None,
         limit: int | None = None,
         offset: int = 0,
         output: str = "pandas",
@@ -67,8 +68,19 @@ class ExperimentMixin:
     ):
         """List experiments accessible to the authenticated user.
 
+        Returns experiments you own plus those shared with you — including
+        **cross-organization** shares — subject to your API key's
+        ``experimentIds`` restriction (if any). The result set therefore may
+        include experiments owned by other organizations that have been
+        shared with your user.
+
         Args:
             search: Filter experiments by name/description substring.
+            view: Response shape. ``None`` (default) returns full experiment
+                documents. ``"summary"`` returns a compact projection
+                (``id``, ``name``, room/participant counts, ``accessType``,
+                ``statesCount``, ``visibility``, …) that is much cheaper to
+                fetch for large experiment lists.
             limit: Max experiments to return. ``None`` fetches all pages.
             offset: Starting offset for pagination.
             output: ``"pandas"`` (default), ``"polars"``, or ``"dict"``.
@@ -76,10 +88,17 @@ class ExperimentMixin:
 
         Returns:
             DataFrame or list of dicts depending on *output*.
+
+        Note:
+            ``accessType`` (``"owner"`` / ``"org"`` / ``"shared"``) is present
+            on every row. Per-user ``effectiveDataPermissions`` badges are only
+            returned for browser/token sessions, not for API-key callers.
         """
         params: dict[str, Any] = {"offset": offset}
         if search:
             params["search"] = search
+        if view:
+            params["view"] = view
 
         if limit is not None:
             params["limit"] = limit

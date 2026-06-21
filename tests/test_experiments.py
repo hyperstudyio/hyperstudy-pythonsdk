@@ -37,6 +37,34 @@ def test_list_experiments(experiments_list_response):
 
 
 @responses.activate
+def test_list_experiments_view_summary(experiments_list_response):
+    """view='summary' is passed through as a query param (compact projection)."""
+    responses.get(
+        f"{BASE_URL}/experiments",
+        json=experiments_list_response,
+        status=200,
+    )
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    client.list_experiments(limit=50, view="summary")
+
+    assert "view=summary" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_list_experiments_omits_view_by_default(experiments_list_response):
+    """No view param is sent when view is not specified (full-doc default)."""
+    responses.get(
+        f"{BASE_URL}/experiments",
+        json=experiments_list_response,
+        status=200,
+    )
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    client.list_experiments(limit=50)
+
+    assert "view=" not in responses.calls[0].request.url
+
+
+@responses.activate
 def test_list_experiments_dict(experiments_list_response):
     """list_experiments with output='dict' returns list of dicts."""
     responses.get(
