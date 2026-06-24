@@ -476,6 +476,19 @@ class HyperStudy(ExperimentMixin):
     # Recording downloads
     # ------------------------------------------------------------------
 
+    def _download_url_for(self, recording: dict[str, Any]) -> str | None:
+        """Resolve a directly-downloadable URL for a recording.
+
+        Prefers the auth'd mint endpoint (``downloadPath`` -> short-lived signed GCS
+        URL); falls back to a legacy absolute ``downloadUrl``/``url`` for old
+        GCS-only recordings.
+        """
+        download_path = recording.get("downloadPath")
+        if download_path:
+            body = self._transport.get(download_path)
+            return (body.get("data") or {}).get("url")
+        return get_download_url(recording)
+
     def download_recording(
         self,
         recording: dict[str, Any],
@@ -490,7 +503,7 @@ class HyperStudy(ExperimentMixin):
         Returns:
             Path to the downloaded file.
         """
-        url = get_download_url(recording)
+        url = self._download_url_for(recording)
         if not url:
             raise ValueError("Recording has no downloadUrl or url field")
 
@@ -569,7 +582,7 @@ class HyperStudy(ExperimentMixin):
             filename = build_filename(rec)
             dest = dest_dir / filename
 
-            url = get_download_url(rec)
+            url = self._download_url_for(rec)
             if not url:
                 local_paths.append(None)
                 statuses.append("failed")
