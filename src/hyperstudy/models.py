@@ -13,12 +13,39 @@ import uuid
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 
 def _new_id() -> str:
     return uuid.uuid4().hex[:8]
+
+
+# Fields whose IMMEDIATE child keys are user-defined names (variable names, role
+# names, component ids), NOT schema fields — their keys must NOT be camelCased.
+# Their values are still recursed into.
+_FREEFORM_MAP_FIELDS = frozenset({
+    "variables", "roles", "globalComponents", "globalComponentsVisibility",
+})
+
+
+def camelize_wire(value: Any, _parent_key: "str | None" = None) -> Any:
+    """Recursively convert snake_case dict keys to camelCase for the wire format.
+
+    Skips converting the immediate keys of free-form map fields (variables, roles,
+    globalComponents, globalComponentsVisibility) — those are user-defined names —
+    but still recurses into their values.
+    """
+    if isinstance(value, dict):
+        skip_keys = _parent_key in _FREEFORM_MAP_FIELDS
+        out: dict[str, Any] = {}
+        for k, v in value.items():
+            new_key = k if skip_keys else (to_camel(k) if isinstance(k, str) else k)
+            out[new_key] = camelize_wire(v, _parent_key=new_key)
+        return out
+    if isinstance(value, list):
+        return [camelize_wire(v, _parent_key=_parent_key) for v in value]
+    return value
 
 
 class ComponentType(str, Enum):
@@ -78,7 +105,12 @@ class FocusComponent(_Model):
 
     type: ComponentType
     config: dict[str, Any] = Field(default_factory=dict)
-    id: Optional[str] = None
+    id: str = Field(default_factory=_new_id)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _default_id(cls, v: "str | None") -> str:
+        return v or _new_id()
 
 
 class TransitionRules(_Model):
@@ -91,7 +123,7 @@ class TransitionRules(_Model):
 class State(_Model):
     """An experiment state — a single screen/phase."""
 
-    id: str
+    id: str = Field(min_length=1)
     name: Optional[str] = None
     order: Optional[int] = Field(default=None, ge=0)
     focus_component: Optional[FocusComponent] = None
@@ -141,7 +173,7 @@ class Experiment(_Model):
     randomize_states: Optional[bool] = None
     states: Optional[list[State]] = None
     roles: Optional[dict[str, Role]] = None
-    global_components: Optional[dict[str, dict[str, Any]]] = None
+    global_components: Optional[dict[GlobalComponentType, dict[str, Any]]] = None
     variables: Optional[dict[str, Any]] = None
     waiting_room_config: Optional[WaitingRoomConfig] = None
     disconnect_timeout: Optional[DisconnectTimeout] = None
@@ -175,8 +207,8 @@ def show_text(text: str, *, id: Optional[str] = None, **extra: Any) -> FocusComp
     """Build a ``showtext`` focus component."""
     return FocusComponent(
         type=ComponentType.SHOW_TEXT,
-        config={**extra, "text": text},
-        id=id or _new_id(),
+        config={**camelize_wire(extra), "text": text},
+        id=id,
     )
 
 
@@ -184,8 +216,8 @@ def show_image(url: str, *, id: Optional[str] = None, **extra: Any) -> FocusComp
     """Build a ``showimage`` focus component."""
     return FocusComponent(
         type=ComponentType.SHOW_IMAGE,
-        config={**extra, "url": url},
-        id=id or _new_id(),
+        config={**camelize_wire(extra), "url": url},
+        id=id,
     )
 
 
@@ -193,8 +225,8 @@ def show_video(url: str, *, id: Optional[str] = None, **extra: Any) -> FocusComp
     """Build a ``showvideo`` focus component."""
     return FocusComponent(
         type=ComponentType.SHOW_VIDEO,
-        config={**extra, "url": url},
-        id=id or _new_id(),
+        config={**camelize_wire(extra), "url": url},
+        id=id,
     )
 
 
@@ -208,8 +240,8 @@ def vas_rating(
     """Build a ``vasrating`` (visual analog scale) focus component."""
     return FocusComponent(
         type=ComponentType.VAS_RATING,
-        config={**extra, "prompt": prompt, "outputVariable": output_variable},
-        id=id or _new_id(),
+        config={**camelize_wire(extra), "prompt": prompt, "outputVariable": output_variable},
+        id=id,
     )
 
 
@@ -223,8 +255,8 @@ def text_input(
     """Build a ``textinput`` focus component."""
     return FocusComponent(
         type=ComponentType.TEXT_INPUT,
-        config={**extra, "prompt": prompt, "outputVariable": output_variable},
-        id=id or _new_id(),
+        config={**camelize_wire(extra), "prompt": prompt, "outputVariable": output_variable},
+        id=id,
     )
 
 
@@ -240,12 +272,12 @@ def multiple_choice(
     return FocusComponent(
         type=ComponentType.MULTIPLE_CHOICE,
         config={
-            **extra,
+            **camelize_wire(extra),
             "prompt": prompt,
             "options": list(options),
             "outputVariable": output_variable,
         },
-        id=id or _new_id(),
+        id=id,
     )
 
 
@@ -253,8 +285,8 @@ def waiting(duration_ms: int, *, id: Optional[str] = None, **extra: Any) -> Focu
     """Build a ``waiting`` focus component."""
     return FocusComponent(
         type=ComponentType.WAITING,
-        config={**extra, "durationMs": int(duration_ms)},
-        id=id or _new_id(),
+        config={**camelize_wire(extra), "durationMs": int(duration_ms)},
+        id=id,
     )
 
 
@@ -270,12 +302,12 @@ def likert_scale(
     return FocusComponent(
         type=ComponentType.LIKERT_SCALE,
         config={
-            **extra,
+            **camelize_wire(extra),
             "prompt": prompt,
             "outputVariable": output_variable,
             "scalePoints": int(scale_points),
         },
-        id=id or _new_id(),
+        id=id,
     )
 
 
@@ -291,12 +323,12 @@ def ranking(
     return FocusComponent(
         type=ComponentType.RANKING,
         config={
-            **extra,
+            **camelize_wire(extra),
             "prompt": prompt,
             "options": list(options),
             "outputVariable": output_variable,
         },
-        id=id or _new_id(),
+        id=id,
     )
 
 
@@ -304,6 +336,8 @@ __all__ = [
     # Enums
     "ComponentType",
     "GlobalComponentType",
+    # Wire conversion helper
+    "camelize_wire",
     # Models
     "Experiment",
     "State",
