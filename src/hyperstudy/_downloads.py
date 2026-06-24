@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -38,12 +39,12 @@ def build_filename(recording: dict[str, Any]) -> str:
 
 
 def download_file(url: str, dest: Path, timeout: int = 300) -> int:
-    """Stream-download *url* to *dest* and return bytes written.
+    """Stream-download *url* to *dest*; returns bytes written.
 
-    Verifies ``Content-Length`` (when the server provides it) against bytes
-    actually written. On any error — HTTP, mid-stream disconnect, or length
-    mismatch — the partial file on disk is removed so ``skip_existing``
-    logic won't mistake it for a complete download on retry.
+    Downloads to a temporary ``<dest>.part`` and atomically renames on success, so a
+    mid-stream failure (HTTP error, disconnect, length mismatch) removes only the temp
+    file and leaves any pre-existing complete file at ``dest`` intact. Verifies
+    ``Content-Length`` when provided.
     """
     resp = requests.get(url, stream=True, timeout=timeout)
     resp.raise_for_status()
@@ -57,20 +58,23 @@ def download_file(url: str, dest: Path, timeout: int = 300) -> int:
     else:
         expected = None
 
+    tmp = dest.with_name(dest.name + ".part")
     written = 0
-    # BaseException so Ctrl-C also cleans up, not just exceptions.
     try:
-        with open(dest, "wb") as fh:
+        with open(tmp, "wb") as fh:
             for chunk in resp.iter_content(chunk_size=_CHUNK_SIZE):
                 fh.write(chunk)
                 written += len(chunk)
-
         if expected is not None and written != expected:
             raise IOError(
                 f"Truncated download: wrote {written} of {expected} bytes for {dest.name}"
             )
+        os.replace(tmp, dest)   # atomic on the same filesystem
     except BaseException:
-        dest.unlink(missing_ok=True)
+        try:
+            tmp.unlink(missing_ok=True)   # remove only the temp; never the existing dest
+        except OSError:
+            pass
         raise
 
     return written

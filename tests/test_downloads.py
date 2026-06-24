@@ -186,3 +186,71 @@ def test_download_file_cleans_up_on_stream_error(tmp_path):
         assert not dest.exists(), "partial file must be deleted on mid-stream error"
     finally:
         downloads_mod.requests.get = original
+
+
+# ---------------------------------------------------------------------------
+# Fix C — atomic download: pre-existing dest must survive a failed download
+# ---------------------------------------------------------------------------
+
+
+def test_download_file_atomic_preserves_existing_on_truncation(tmp_path, monkeypatch):
+    """A pre-existing complete file is NOT removed when the new download fails.
+
+    The new code streams to a .part file; on failure only the .part is removed,
+    leaving the original intact.
+    """
+    import hyperstudy._downloads as downloads_mod
+
+    dest = tmp_path / "output.mp4"
+    original_bytes = b"ORIGINAL_COMPLETE_DATA"
+    dest.write_bytes(original_bytes)
+
+    # Simulate a truncated download: Content-Length claims 100 but body is short.
+    class TruncatedResponse:
+        status_code = 200
+        headers = {"Content-Length": "100"}
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            yield b"SHORT"  # only 5 bytes, not 100
+
+    monkeypatch.setattr(
+        downloads_mod.requests, "get", lambda *a, **kw: TruncatedResponse()
+    )
+
+    with pytest.raises(IOError, match="[Tt]runcated"):
+        download_file("https://example.com/trunc.mp4", dest)
+
+    # Original file must still exist with original content
+    assert dest.exists(), "pre-existing complete file was destroyed by a failed download"
+    assert dest.read_bytes() == original_bytes
+
+    # No .part file should remain
+    part = dest.with_name(dest.name + ".part")
+    assert not part.exists(), ".part file not cleaned up after failure"
+
+
+def test_download_file_no_part_file_on_success(tmp_path, monkeypatch):
+    """On success, no .part file lingers."""
+    import hyperstudy._downloads as downloads_mod
+
+    class OkResponse:
+        status_code = 200
+        headers: dict = {}
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            yield b"GOOD DATA"
+
+    monkeypatch.setattr(
+        downloads_mod.requests, "get", lambda *a, **kw: OkResponse()
+    )
+    dest = tmp_path / "ok.mp4"
+    download_file("https://example.com/ok.mp4", dest)
+    assert dest.exists()
+    part = dest.with_name(dest.name + ".part")
+    assert not part.exists()
