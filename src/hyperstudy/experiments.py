@@ -10,6 +10,7 @@ from pydantic.alias_generators import to_camel
 from ._display import ExperimentInfo
 from ._http import HttpTransport
 from ._pagination import fetch_all_pages
+from .models import camelize_wire
 
 if TYPE_CHECKING:
     from .models import Experiment
@@ -37,13 +38,14 @@ def _build_experiment_payload(
     elif isinstance(experiment, BaseModel):
         payload = experiment.model_dump(by_alias=True, exclude_none=True)
     elif isinstance(experiment, dict):
-        payload = dict(experiment)
+        payload = camelize_wire(experiment)
     else:
         raise TypeError(
             f"experiment must be an Experiment or dict, got {type(experiment).__name__}"
         )
     for key, value in overrides.items():
-        payload[to_camel(key)] = value
+        ck = to_camel(key)
+        payload[ck] = camelize_wire(value, _parent_key=ck)
     return payload
 
 
@@ -182,6 +184,11 @@ class ExperimentMixin:
             Update confirmation dict.
         """
         payload = _build_experiment_payload(experiment, **kwargs)
+        if not payload:
+            raise ValueError(
+                "update_experiment requires at least one field to update "
+                "(pass experiment=... or keyword fields)."
+            )
         body = self._transport.put(f"experiments/{experiment_id}", json=payload)
         data = body.get("data", [])
         return data[0] if isinstance(data, list) and data else data

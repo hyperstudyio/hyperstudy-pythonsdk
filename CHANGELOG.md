@@ -9,6 +9,18 @@
 - `create_experiment` and `update_experiment` now accept an `experiment=Experiment(...)` argument alongside the existing `**kwargs` form. When both are given, kwargs override builder fields.
 - New `validate_experiment(experiment)` method — dry-run against `POST /experiments/validate`.
 - Schema-drift guard test: vendored copy of `experiment.schema.json` is checked against `ComponentType` / `GlobalComponentType` / required-field declarations so backend additions surface in CI.
+- `download_recording` / `download_recordings` now mint a signed URL via `downloadPath` (auth'd endpoint returning a short-lived GCS URL); falls back to a legacy absolute `downloadUrl`/`url` for older recordings.
+
+### Hardening
+
+- Snake_case→camelCase conversion is now recursive: raw-dict experiments and override kwargs have their nested keys fully converted. Free-form map fields (`variables`, `roles`, `globalComponents`, `globalComponentsVisibility`) preserve their immediate keys (user-defined names) while still converting nested schema fields.
+- Factory `**extra` kwargs are also recursively camelized (e.g. `show_text("hi", max_width=600)` produces `{"maxWidth": 600, "text": "hi"}`).
+- Downloads are now atomic: the file streams to `<dest>.part` and is renamed on success, so a mid-stream failure leaves any pre-existing complete file at `dest` intact.
+- `skip_existing` now skips when `fileSize` is unknown (previous behavior forced a re-download). Because downloads are atomic, any existing file is necessarily complete.
+- `update_experiment()` with no fields raises `ValueError` instead of sending an empty PUT.
+- `State.id` enforces `min_length=1` (mirrors the JSON schema's `minLength: 1`).
+- `Experiment.global_components` keys are validated against `GlobalComponentType`; invalid component types are rejected at construction time. Keys serialize as strings on the wire.
+- `FocusComponent.id` is auto-generated when not supplied (including direct construction without using a factory helper).
 
 ### Backwards Compatibility
 

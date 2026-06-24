@@ -283,6 +283,84 @@ def test_factory_generates_id_when_omitted():
 
 
 # ---------------------------------------------------------------------------
+# Fix A2 — factory **extra camelization
+# ---------------------------------------------------------------------------
+
+
+def test_factory_extra_snake_case_camelized():
+    """Extra kwargs to factories are camelized so they land correctly on the wire."""
+    c = show_text("hi", max_width=600)
+    assert "maxWidth" in c.config
+    assert c.config["maxWidth"] == 600
+    assert "max_width" not in c.config
+
+
+def test_vas_rating_factory_extra_camelized():
+    """vas_rating extra kwargs with snake_case are camelized."""
+    c = vas_rating("p", output_variable="ov", min_label="Low")
+    assert "minLabel" in c.config
+    assert c.config["minLabel"] == "Low"
+    assert "outputVariable" in c.config
+    assert "outputVariable" in c.config
+
+
+# ---------------------------------------------------------------------------
+# Fix E — schema enforcement on State.id and global_components
+# ---------------------------------------------------------------------------
+
+
+def test_state_id_empty_rejected():
+    """State.id must be non-empty (minLength:1)."""
+    with pytest.raises(ValidationError):
+        State(id="")
+
+
+def test_global_components_invalid_type_rejected():
+    """global_components keys must be GlobalComponentType values."""
+    with pytest.raises(ValidationError):
+        Experiment(name="x", global_components={"showvideo": {}})
+
+
+def test_global_components_valid_type_accepted():
+    """Valid GlobalComponentType keys are accepted."""
+    exp = Experiment(name="x", global_components={"videochat": {"option": 1}})
+    wire = exp.model_dump(by_alias=True, exclude_none=True)
+    assert wire["globalComponents"] == {"videochat": {"option": 1}}
+
+
+def test_global_components_dumps_string_keys():
+    """global_components keys must serialize as strings, not enum reprs."""
+    exp = Experiment(name="x", global_components={"textchat": {}})
+    wire = exp.model_dump(by_alias=True, exclude_none=True)
+    keys = list(wire["globalComponents"].keys())
+    assert keys == ["textchat"], f"Expected string keys but got: {keys}"
+
+
+# ---------------------------------------------------------------------------
+# Fix F — centralized FocusComponent id via before-validator
+# ---------------------------------------------------------------------------
+
+
+def test_focus_component_direct_construction_gets_id():
+    """FocusComponent(type=..., config=...) gets an auto-generated id."""
+    fc = FocusComponent(type=ComponentType.SHOW_TEXT, config={})
+    assert fc.id is not None
+    assert len(fc.id) == 8
+
+
+def test_show_text_id_auto_generated():
+    """show_text() without id= gets a non-empty id."""
+    fc = show_text("hi")
+    assert fc.id and len(fc.id) == 8
+
+
+def test_show_text_explicit_id_preserved():
+    """show_text(id='x') keeps the explicit id."""
+    fc = show_text("hi", id="x")
+    assert fc.id == "x"
+
+
+# ---------------------------------------------------------------------------
 # Schema-drift guard
 # ---------------------------------------------------------------------------
 #

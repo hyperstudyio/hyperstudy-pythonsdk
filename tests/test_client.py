@@ -357,12 +357,12 @@ def test_download_recordings_skip_existing(api_key, recordings_response, tmp_pat
 
 
 @responses.activate
-def test_download_recordings_skip_requires_known_size(
+def test_download_recordings_skip_when_filesize_unknown(
     api_key, recordings_response, tmp_path
 ):
-    """When server-side fileSize is missing, skip_existing must NOT accept a
-    stale on-disk file — it must re-download so truncated prior attempts
-    don't linger forever."""
+    """When server-side fileSize is missing, skip_existing should skip an
+    existing on-disk file. Because downloads are atomic (Fix C), any file
+    that exists is necessarily complete — truncated partials cannot remain."""
     # Strip fileSize from the video record to simulate older recordings where
     # the backend didn't store file size metadata.
     recordings_response["data"][0]["fileSize"] = None
@@ -373,16 +373,12 @@ def test_download_recordings_skip_requires_known_size(
         status=200,
     )
 
-    # Pre-create a (probably partial) video file on disk.
+    # Pre-create a complete video file on disk (atomic rename guarantees this).
+    existing_bytes = b"already-complete-video-content"
     video_path = tmp_path / "Alice_video_EG_video_001.mp4"
-    video_path.write_bytes(b"stale-partial-content")
+    video_path.write_bytes(existing_bytes)
 
-    fresh_video = b"freshly downloaded video bytes" * 20
-    responses.get(
-        recordings_response["data"][0]["downloadUrl"],
-        body=fresh_video,
-        status=200,
-    )
+    # Audio still needs to download (does not exist on disk).
     responses.get(
         recordings_response["data"][1]["downloadUrl"],
         body=b"audio",
@@ -394,8 +390,9 @@ def test_download_recordings_skip_requires_known_size(
         "exp_abc123", output_dir=str(tmp_path), progress=False, skip_existing=True
     )
 
-    assert df["download_status"].iloc[0] == "downloaded"
-    assert video_path.read_bytes() == fresh_video
+    # Video was skipped (pre-existing, no GCS call needed).
+    assert df["download_status"].iloc[0] == "skipped"
+    assert video_path.read_bytes() == existing_bytes
 
 
 def test_download_recordings_list_call_uses_long_timeout(

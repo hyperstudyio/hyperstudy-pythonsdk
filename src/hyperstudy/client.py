@@ -577,26 +577,29 @@ class HyperStudy(ExperimentMixin):
 
         local_paths: list[str | None] = []
         statuses: list[str] = []
+        failed_count = 0
 
         for rec in tqdm(recordings, desc="Downloading recordings", disable=not progress):
             filename = build_filename(rec)
             dest = dest_dir / filename
 
+            # Check skip before resolving the URL (avoids minting a signed URL unnecessarily).
+            if skip_existing and dest.exists():
+                expected_size = rec.get("fileSize")
+                # dest is always a fully-written file (atomic rename), so skip when size is
+                # unknown OR matches; only re-download on a definite size mismatch.
+                if expected_size is None or dest.stat().st_size == expected_size:
+                    local_paths.append(str(dest.resolve()))
+                    statuses.append("skipped")
+                    continue
+
             url = self._download_url_for(rec)
             if not url:
                 local_paths.append(None)
                 statuses.append("failed")
+                failed_count += 1
                 warnings.warn(f"Recording {rec.get('recordingId')} has no download URL")
                 continue
-
-            if skip_existing and dest.exists():
-                expected_size = rec.get("fileSize")
-                # Require positive size match; missing size → re-download to
-                # avoid trusting a truncated file from a prior failed run.
-                if expected_size is not None and dest.stat().st_size == expected_size:
-                    local_paths.append(str(dest.resolve()))
-                    statuses.append("skipped")
-                    continue
 
             try:
                 download_file(url, dest)
@@ -605,11 +608,11 @@ class HyperStudy(ExperimentMixin):
             except Exception as exc:
                 local_paths.append(None)
                 statuses.append("failed")
+                failed_count += 1
                 warnings.warn(
                     f"Failed to download recording {rec.get('recordingId')}: {exc}"
                 )
 
-        failed_count = sum(1 for s in statuses if s == "failed")
         if failed_count:
             warnings.warn(
                 f"{failed_count}/{len(recordings)} recordings failed to download; "

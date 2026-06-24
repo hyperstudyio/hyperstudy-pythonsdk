@@ -396,3 +396,79 @@ def test_get_experiment_not_found():
     client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
     with pytest.raises(NotFoundError, match="not found"):
         client.get_experiment("exp_nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# Fix A1 — recursive snake→camel on dict experiment path and overrides
+# ---------------------------------------------------------------------------
+
+
+def test_build_payload_dict_experiment_camelizes_keys():
+    """dict-form experiments have snake_case keys converted to camelCase."""
+    from hyperstudy.experiments import _build_experiment_payload
+
+    payload = _build_experiment_payload(
+        {"waiting_room_config": {"max_wait_time_ms": 5000}}
+    )
+    assert payload == {"waitingRoomConfig": {"maxWaitTimeMs": 5000}}
+    assert "waiting_room_config" not in payload
+
+
+def test_build_payload_dict_nested_list_camelized():
+    """Nested list values in dicts are also camelized."""
+    from hyperstudy.experiments import _build_experiment_payload
+
+    payload = _build_experiment_payload(
+        {
+            "states": [
+                {
+                    "id": "s1",
+                    "focus_component": {"type": "showtext", "config": {"text": "hi"}},
+                }
+            ]
+        }
+    )
+    assert "focusComponent" in payload["states"][0]
+    assert "focus_component" not in payload["states"][0]
+
+
+def test_build_payload_freeform_keys_preserved():
+    """variables keys are NOT camelized (user-defined names), but values are."""
+    from hyperstudy.experiments import _build_experiment_payload
+
+    payload = _build_experiment_payload({"variables": {"my_var_name": 1}})
+    assert payload == {"variables": {"my_var_name": 1}}
+
+
+def test_build_payload_roles_name_preserved_value_camelized():
+    """Role names (keys) are preserved; nested fields in values are camelized."""
+    from hyperstudy.experiments import _build_experiment_payload
+
+    payload = _build_experiment_payload(
+        {"roles": {"my_role": {"participant_count": 2}}}
+    )
+    assert "my_role" in payload["roles"]
+    assert payload["roles"]["my_role"] == {"participantCount": 2}
+
+
+def test_build_payload_override_value_camelized():
+    """Override values (nested dicts/lists) are also recursively camelized."""
+    from hyperstudy.experiments import _build_experiment_payload
+
+    payload = _build_experiment_payload(
+        None,
+        waiting_room_config={"max_wait_time_ms": 3000},
+    )
+    assert payload == {"waitingRoomConfig": {"maxWaitTimeMs": 3000}}
+
+
+# ---------------------------------------------------------------------------
+# Fix B — empty-PUT guard
+# ---------------------------------------------------------------------------
+
+
+def test_update_experiment_empty_raises():
+    """update_experiment with no experiment and no kwargs raises ValueError."""
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    with pytest.raises(ValueError, match="at least one field"):
+        client.update_experiment("exp123")
