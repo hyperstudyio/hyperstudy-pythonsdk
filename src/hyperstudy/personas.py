@@ -15,7 +15,8 @@ if TYPE_CHECKING:
 
 def _persona_payload(persona: "Persona | None", kwargs: dict[str, Any]) -> dict[str, Any]:
     """Build a wire-ready persona payload from a typed Persona and/or kwargs."""
-    from .models import Persona as PersonaModel, camelize_wire
+    from .models import Persona as PersonaModel
+    from .models import camelize_wire
 
     payload: dict[str, Any] = {}
     if persona is not None:
