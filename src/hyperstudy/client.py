@@ -15,9 +15,10 @@ from ._pagination import fetch_all_pages
 from ._types import Scope
 from .exceptions import HyperStudyError
 from .experiments import ExperimentMixin
+from .personas import PersonaMixin
 
 
-class HyperStudy(ExperimentMixin):
+class HyperStudy(ExperimentMixin, PersonaMixin):
     """Client for the HyperStudy API v3.
 
     Args:
@@ -440,6 +441,85 @@ class HyperStudy(ExperimentMixin):
         body = self._transport.get(f"deployments/{deployment_id}/sessions")
         data = body.get("data", [])
         return self._convert_output(data, output)
+
+    # ------------------------------------------------------------------
+    # Deployments — agent-deployment write surface
+    # ------------------------------------------------------------------
+
+    def create_deployment(
+        self,
+        experiment_id: str,
+        *,
+        config: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Create a deployment (requires the ``write:deployments`` scope).
+
+        For an agent-only deployment, pass::
+
+            hs.create_deployment(
+                "exp_123",
+                config={
+                    "name": "Pilot batch",
+                    "type": "agent-only",
+                    "agentDeployment": {"rooms": 10, "budgetUsd": 5.0},
+                },
+            )
+
+        Agent rooms launch server-side immediately after creation. Preflight
+        failures (missing persona binding, missing provider key, unreachable
+        custom endpoint) raise :class:`ValidationError` with per-role reasons.
+
+        Args:
+            experiment_id: The experiment to deploy (agent-only requires
+                ``runtime="v2"`` and at least one agent-mode role).
+            config: Deployment config dict (camelCase keys, as above).
+            **kwargs: Extra config fields, merged into ``config``.
+
+        Returns:
+            The created deployment dict.
+        """
+        merged = {**(config or {}), **kwargs}
+        body = self._transport.post(
+            "deployments", json={"experimentId": experiment_id, "config": merged}
+        )
+        return body.get("data", {})
+
+    def get_agent_spend(self, deployment_id: str) -> dict[str, Any]:
+        """Total + per-room agent LLM spend for an agent-only deployment."""
+        body = self._transport.get(f"deployments/{deployment_id}/agent-spend")
+        return body.get("data", {})
+
+    def run_more(
+        self, deployment_id: str, *, rooms: int, budget_usd: float
+    ) -> dict[str, Any]:
+        """Launch additional agent rooms on an existing agent-only deployment.
+
+        Args:
+            deployment_id: The deployment to extend.
+            rooms: Number of additional rooms.
+            budget_usd: Additional budget for this batch (added to the
+                deployment's cumulative budget cap).
+
+        Returns:
+            Dict with the launched ``batchId`` and ``requestedRooms``.
+        """
+        body = self._transport.post(
+            f"deployments/{deployment_id}/run-more",
+            json={"rooms": rooms, "budgetUsd": budget_usd},
+        )
+        return body.get("data", {})
+
+    def stop_room(self, deployment_id: str, room_id: str) -> None:
+        """Force-end a running agent room."""
+        self._transport.post(f"deployments/{deployment_id}/rooms/{room_id}/stop")
+
+    def retry_room(self, deployment_id: str, room_id: str) -> dict[str, Any]:
+        """Re-spawn a fresh room for a spawn-failed one (reuses the budget pool)."""
+        body = self._transport.post(
+            f"deployments/{deployment_id}/rooms/{room_id}/retry"
+        )
+        return body.get("data", {})
 
     # ------------------------------------------------------------------
     # Agent data — decisions and run manifests

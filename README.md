@@ -140,13 +140,57 @@ dep = hs.get_deployment("deployment_id")
 sessions = hs.get_deployment_sessions("deployment_id")
 ```
 
+## AI Agents
+
+Full agent workflow support: personas (the agent library), agent-role experiment authoring, agent-only deployment launch/control, and agent data.
+
+```python
+from hyperstudy import Persona, PromptLayer, Guardrails, Role, AgentConfig
+
+# --- Personas (agent library) ---
+persona = hs.create_persona(persona=Persona(
+    name="Curious Undergrad",
+    provider="anthropic",
+    model="claude-opus-4-8",
+    prompt=PromptLayer(persona="You are a curious undergraduate...",
+                       objective="Converse naturally with your partner."),
+    guardrails=Guardrails(max_turns=50, budget_usd=2.0),
+))
+personas = hs.list_personas()
+hs.update_persona(persona["id"], description="Updated")  # merge-patch
+
+# --- Agent roles in experiments ---
+exp = hs.create_experiment(experiment=Experiment(
+    name="Agent study",
+    runtime="v2",  # required for agent-only deployments
+    roles={"partner": Role(mode="agent", persona_id=persona["id"])},
+    agent_config=AgentConfig(seed=42),
+    states=[...],
+))
+
+# --- Agent-only deployment ---
+dep = hs.create_deployment(exp["id"], config={
+    "type": "agent-only",
+    "agentDeployment": {"rooms": 10, "budgetUsd": 5.0},
+})
+spend = hs.get_agent_spend(dep["id"])           # live spend vs budget
+hs.run_more(dep["id"], rooms=5, budget_usd=2.5) # additive batch
+
+# --- Agent data ---
+decisions = hs.get_agent_decisions(exp["id"])                    # per-turn logs
+runs = hs.get_agent_runs(exp["id"])                              # run manifests
+detail = hs.get_agent_decision("room_id", "participantId_3")     # full blobs
+```
+
+Persona methods need the `read:personas` / `write:personas` API-key scopes; deployment launch/control needs `write:deployments`; agent data reads need `read:events`.
+
 ## All Data for a Participant
 
 ```python
 data = hs.get_all_data("participant_id", room_id="room_id")
 # Returns dict with keys: events, recordings, chat, videochat, sync,
 # ratings_continuous, ratings_sparse, components, questionnaire,
-# instructions, consent
+# instructions, consent, agent_decisions
 ```
 
 ## API Key

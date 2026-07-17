@@ -8,6 +8,8 @@
   `get_agent_decisions(scope_id, scope="experiment"|"room", detail=, limit=, participant_id=)` (per-turn decision logs plus run-manifest rows), `get_agent_decision(room_id, decision_id)` (single decision with full detail blobs: prompt, reasoning chain, peer-model snapshot, prediction update), and `get_agent_runs(experiment_id)` (run manifests with orphaned-run flags). Emits a warning when the server truncates decisions at the per-room limit.
 - `DataType.AGENT_DECISIONS` and `DataType.AGENT_RUNS` enum entries; `get_all_data` now includes an `agent_decisions` key (room-scope fetch filtered to the participant).
 - **Agent-role experiment authoring**: `Role` accepts `mode="agent"` and `persona_id`; new `AgentConfig` (per-role `role_overrides`, `pacing`, `seed`) and `PromptLayer` models; `Experiment` gains `runtime` and `agent_config` fields. Role-name keys in `role_overrides` are preserved (not camelized) on the wire.
+- **Persona management**: `list_personas`, `get_persona`, `create_persona`, `update_persona` (merge-patch), `delete_persona`, `duplicate_persona`, with typed `Persona` / `Guardrails` builders. Requires API-key scopes `read:personas` / `write:personas`.
+- **Agent deployment launch & control**: `create_deployment` (including agent-only deployments — rooms launch server-side immediately), `get_agent_spend`, `run_more`, `stop_room`, `retry_room`. Requires the `write:deployments` scope.
 
 ### Fixes
 

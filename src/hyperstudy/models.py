@@ -172,6 +172,47 @@ class AgentConfig(_Model):
     seed: Optional[int] = None
 
 
+class Guardrails(_Model):
+    """Per-agent safety limits. Unset fields use platform defaults
+    (100 turns / 500k tokens); budgets fail closed when exceeded."""
+
+    max_turns: Optional[int] = Field(default=None, ge=1)
+    budget_tokens: Optional[int] = Field(default=None, ge=1000)
+    budget_usd: Optional[float] = Field(default=None, gt=0)
+    max_consecutive_decision_errors: Optional[int] = Field(default=None, ge=1)
+
+
+class Persona(_Model):
+    """A reusable AI-agent definition (agent library entry).
+
+    The persona owns the agent's identity, model settings, guardrails and
+    (optionally) cognition. ``cognition`` / ``offline_cognition`` are accepted
+    as plain dicts — their schema is experimental and still evolving.
+    """
+
+    name: str = Field(min_length=1)
+    description: Optional[str] = None
+    prompt: Optional[PromptLayer] = None
+    provider: Optional[str] = None  # anthropic (default) | openai | gemini | custom
+    model: Optional[str] = None  # required when provider == "custom"
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    max_tokens: Optional[int] = None
+    thinking: Optional[bool] = None
+    reasoning_effort: Optional[str] = None
+    extra_params: Optional[dict[str, Any]] = None
+    disable_thinking: Optional[bool] = None
+    seed: Optional[int] = None
+    cognition: Optional[dict[str, Any]] = None
+    offline_cognition: Optional[dict[str, Any]] = None
+    memory_persistence: Optional[str] = None  # "none" (default) | "cross-experiment"
+    language: Optional[str] = None
+    seed_memories: Optional[list[dict[str, Any]]] = None
+    guardrails: Optional[Guardrails] = None
+    pacing: Optional[dict[str, Any]] = None
+    visibility: Optional[str] = None  # create-time only: private | organization | public
+
+
 class WaitingRoomConfig(_Model):
     max_wait_time_ms: Optional[int] = Field(default=None, ge=0)
     countdown_time_ms: Optional[int] = Field(default=None, ge=0)
