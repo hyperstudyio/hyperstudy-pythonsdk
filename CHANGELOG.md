@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.4.0
+
+### Features
+
+- **Agent data access**: new methods for AI-agent experiment data —
+  `get_agent_decisions(scope_id, scope="experiment"|"room", detail=, limit=, participant_id=)` (per-turn decision logs plus run-manifest rows), `get_agent_decision(room_id, decision_id)` (single decision with full detail blobs: prompt, reasoning chain, peer-model snapshot, prediction update), and `get_agent_runs(experiment_id)` (run manifests with orphaned-run flags). Emits a warning when the server truncates decisions at the per-room limit.
+- `DataType.AGENT_DECISIONS` and `DataType.AGENT_RUNS` enum entries; `get_all_data` now includes an `agent_decisions` key (room-scope fetch filtered to the participant).
+- **Agent-role experiment authoring**: `Role` accepts `mode="agent"` and `persona_id`; new `AgentConfig` (per-role `role_overrides`, `pacing`, `seed`) and `PromptLayer` models; `Experiment` gains `runtime` and `agent_config` fields. Role-name keys in `role_overrides` are preserved (not camelized) on the wire.
+
+### Fixes
+
+- `__version__` now matches the packaged version (was stuck at 0.3.0 while pyproject said 0.3.1).
+
 ## v0.3.1
 
 ### Features

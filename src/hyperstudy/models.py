@@ -26,6 +26,7 @@ def _new_id() -> str:
 # Their values are still recursed into.
 _FREEFORM_MAP_FIELDS = frozenset({
     "variables", "roles", "globalComponents", "globalComponentsVisibility",
+    "roleOverrides",
 })
 
 
@@ -132,10 +133,43 @@ class State(_Model):
 
 
 class Role(_Model):
-    """Participant role definition for multi-participant experiments."""
+    """Participant role definition for multi-participant experiments.
+
+    Set ``mode="agent"`` and ``persona_id`` to have an AI agent (persona
+    from your library) fill this role instead of a human participant.
+    """
 
     name: Optional[str] = None
     participant_count: Optional[int] = Field(default=None, ge=0)
+    mode: Optional[str] = None  # "human" (default) or "agent"
+    persona_id: Optional[str] = None
+
+
+class PromptLayer(_Model):
+    """Structured prompt fields, used for per-role agent overrides.
+
+    Overrides are APPENDED to the bound persona's own prompt fields —
+    they never replace the persona's identity.
+    """
+
+    persona: Optional[str] = None
+    objective: Optional[str] = None
+    guidance: Optional[str] = None
+    examples: Optional[list[str]] = None
+    additional_instructions: Optional[str] = None
+
+
+class AgentConfig(_Model):
+    """Experiment-level agent inputs.
+
+    The bound persona is the source of truth for provider/model/prompt;
+    the experiment contributes only per-role prompt overrides, pacing,
+    and the random seed.
+    """
+
+    role_overrides: Optional[dict[str, PromptLayer]] = None
+    pacing: Optional[dict[str, Any]] = None
+    seed: Optional[int] = None
 
 
 class WaitingRoomConfig(_Model):
@@ -170,6 +204,8 @@ class Experiment(_Model):
     name: str = Field(min_length=1)
     description: Optional[str] = None
     required_participants: Optional[int] = Field(default=None, ge=1)
+    runtime: Optional[str] = None  # "v2" required for agent-only deployments
+    agent_config: Optional[AgentConfig] = None
     randomize_states: Optional[bool] = None
     states: Optional[list[State]] = None
     roles: Optional[dict[str, Role]] = None

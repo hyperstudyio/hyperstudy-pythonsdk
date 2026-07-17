@@ -1,0 +1,46 @@
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "agent_r1_p1",
+      "participantId": "agent_r1_p1",
+      "roomId": "room_abc123",
+      "personaId": "persona_xyz",
+      "model": "claude-opus-4-8",
+      "provider": "anthropic",
+      "seed": 42,
+      "totalInputTokens": 4662,
+      "totalOutputTokens": 82,
+      "totalCostUsd": 0.089,
+      "turns": 2,
+      "codeCommitSha": "812fa5e18",
+      "roomStatus": "completed",
+      "orphaned": false,
+      "startedAt": "2026-07-15T18:22:12.000Z",
+      "endedAt": "2026-07-15T18:25:40.000Z"
+    },
+    {
+      "id": "agent_r2_p1",
+      "participantId": "agent_r2_p1",
+      "roomId": "room_def456",
+      "personaId": "persona_xyz",
+      "model": "claude-opus-4-8",
+      "provider": "anthropic",
+      "seed": 42,
+      "totalInputTokens": 1201,
+      "totalOutputTokens": 12,
+      "totalCostUsd": 0.021,
+      "turns": 1,
+      "codeCommitSha": "812fa5e18",
+      "roomStatus": "failed",
+      "orphaned": true,
+      "startedAt": "2026-07-15T18:30:00.000Z",
+      "endedAt": null
+    }
+  ],
+  "metadata": {
+    "dataType": "agentRuns",
+    "scope": "experiment",
+    "scopeId": "exp_123"
+  }
+}

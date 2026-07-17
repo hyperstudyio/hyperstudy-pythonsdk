@@ -1,0 +1,30 @@
+{
+  "status": "success",
+  "data": {
+    "id": "agent_r1_p1_2",
+    "participantId": "agent_r1_p1",
+    "roomId": "room_abc123",
+    "seq": 2,
+    "stateId": "state_1",
+    "stateName": "Rating",
+    "turnKind": "component",
+    "action": "respond",
+    "value": 72,
+    "model": "claude-opus-4-8",
+    "provider": "anthropic",
+    "prompt": "You are a curious undergraduate...\n\nCurrent situation: ...",
+    "reasoning": "The video felt moderately positive, so I will rate 72.",
+    "chain": [
+      {"stage": "goal_infer", "output": "Partner seems to want agreement."},
+      {"stage": "decide", "output": "respond(72)"}
+    ],
+    "peerModelSnapshot": {"peer_1": {"inferredGoal": "agreement"}},
+    "predictionUpdate": {"predictionError": 0.18},
+    "timestamp": "2026-07-15T18:23:04.000Z"
+  },
+  "metadata": {
+    "dataType": "agentDecisions",
+    "scope": "room",
+    "scopeId": "room_abc123"
+  }
+}

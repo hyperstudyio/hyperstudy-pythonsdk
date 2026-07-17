@@ -23,6 +23,8 @@ class DataType(str, Enum):
     COMPONENTS = "components"
     PARTICIPANTS = "participants"
     ROOMS = "rooms"
+    AGENT_DECISIONS = "agentDecisions"
+    AGENT_RUNS = "agentRuns"
 
 
 class RatingKind(str, Enum):

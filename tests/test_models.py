@@ -424,3 +424,58 @@ def test_experiment_required_fields_match_schema():
         assert field.is_required(), (
             f"schema requires {req!r} but model marks it optional"
         )
+
+
+# ------------------------------------------------------------------
+# Agent-role authoring (mode/persona_id, AgentConfig, runtime)
+# ------------------------------------------------------------------
+
+
+def test_agent_role_wire_format():
+    """Agent-mode roles serialize mode and personaId in camelCase."""
+    from hyperstudy import Role
+
+    role = Role(name="Confederate", participant_count=1, mode="agent",
+                persona_id="persona_abc")
+    wire = role.model_dump(by_alias=True, exclude_none=True)
+
+    assert wire == {
+        "name": "Confederate",
+        "participantCount": 1,
+        "mode": "agent",
+        "personaId": "persona_abc",
+    }
+
+
+def test_agent_config_wire_format_preserves_role_names():
+    """agentConfig serializes with camelCase fields but role-name keys intact."""
+    from hyperstudy import AgentConfig, Experiment, PromptLayer, Role
+
+    exp = Experiment(
+        name="Agent study",
+        runtime="v2",
+        roles={
+            "my_speaker": Role(mode="agent", persona_id="persona_abc"),
+        },
+        agent_config=AgentConfig(
+            role_overrides={
+                "my_speaker": PromptLayer(
+                    objective="Convince your partner.",
+                    additional_instructions="Stay in character.",
+                ),
+            },
+            pacing={"minDelayMs": 1500},
+            seed=42,
+        ),
+    )
+    wire = exp.model_dump(by_alias=True, exclude_none=True)
+
+    assert wire["runtime"] == "v2"
+    # Free-form role-name keys must survive untouched (not camelized)
+    assert "my_speaker" in wire["roles"]
+    assert wire["roles"]["my_speaker"]["personaId"] == "persona_abc"
+    overrides = wire["agentConfig"]["roleOverrides"]
+    assert "my_speaker" in overrides
+    assert overrides["my_speaker"]["objective"] == "Convince your partner."
+    assert overrides["my_speaker"]["additionalInstructions"] == "Stay in character."
+    assert wire["agentConfig"]["seed"] == 42

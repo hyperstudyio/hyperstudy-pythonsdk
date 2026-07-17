@@ -530,6 +530,11 @@ def test_get_all_data(api_key, events_response, pre_experiment_response):
     # need a single mock for the events endpoint that handles all calls.
     # The events endpoint is already mocked above, so the category-filtered
     # calls will also match it.
+    responses.get(
+        f"{BASE_URL}/data/agent-decisions/room/room_xyz",
+        json={"status": "success", "data": [], "metadata": {}},
+        status=200,
+    )
     client = HyperStudy(api_key=api_key, base_url=BASE_URL)
     result = client.get_all_data("user_1", room_id="room_xyz")
 
@@ -537,7 +542,7 @@ def test_get_all_data(api_key, events_response, pre_experiment_response):
     assert set(result.keys()) == {
         "events", "recordings", "chat", "videochat", "sync",
         "ratings_continuous", "ratings_sparse", "components",
-        "questionnaire", "instructions", "consent",
+        "questionnaire", "instructions", "consent", "agent_decisions",
     }
     for v in result.values():
         assert isinstance(v, pd.DataFrame)

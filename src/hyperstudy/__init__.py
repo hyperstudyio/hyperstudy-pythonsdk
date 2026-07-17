@@ -30,6 +30,7 @@ from .exceptions import (
     ValidationError,
 )
 from .models import (
+    AgentConfig,
     ComponentType,
     DisconnectTimeout,
     Experiment,
@@ -37,6 +38,7 @@ from .models import (
     GlobalComponentType,
     InstructionsPage,
     PostExperimentQuestionnaire,
+    PromptLayer,
     Role,
     State,
     TransitionRules,
@@ -52,7 +54,7 @@ from .models import (
     waiting,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "HyperStudy",
@@ -75,6 +77,8 @@ __all__ = [
     "State",
     "FocusComponent",
     "Role",
+    "AgentConfig",
+    "PromptLayer",
     "TransitionRules",
     "WaitingRoomConfig",
     "DisconnectTimeout",

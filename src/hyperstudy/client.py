@@ -442,6 +442,98 @@ class HyperStudy(ExperimentMixin):
         return self._convert_output(data, output)
 
     # ------------------------------------------------------------------
+    # Agent data — decisions and run manifests
+    # ------------------------------------------------------------------
+
+    def get_agent_decisions(
+        self,
+        scope_id: str,
+        *,
+        scope: str = "experiment",
+        detail: bool = False,
+        limit: int | None = None,
+        participant_id: str | None = None,
+        output: str = "pandas",
+    ):
+        """Fetch AI-agent decision logs (and run manifests).
+
+        Every agent turn is logged as a decision record; each agent's run
+        also produces one manifest row. Room-scope responses tag rows with
+        ``_type`` (``"decision"`` or ``"run"``).
+
+        Args:
+            scope_id: Experiment ID or room ID, depending on ``scope``.
+            scope: ``"experiment"`` (default, all rooms) or ``"room"``.
+            detail: Include full detail blobs (prompt, reasoning chain,
+                peer-model snapshot, prediction update) on each decision row.
+            limit: Max decisions per room (server default 5000). When the
+                cap is hit a truncation warning is emitted.
+            participant_id: Optionally filter rows to one agent participant
+                (applied client-side).
+            output: ``"pandas"`` (default), ``"polars"``, or ``"dict"``.
+        """
+        if scope not in ("experiment", "room"):
+            raise ValueError(f"scope must be 'experiment' or 'room', got {scope!r}")
+
+        params: dict[str, Any] = {}
+        if detail:
+            params["detail"] = "true"
+        if limit is not None:
+            params["limit"] = limit
+
+        body = self._transport.get(
+            f"data/agent-decisions/{scope}/{scope_id}", params=params or None
+        )
+        data = body.get("data", [])
+        if (body.get("metadata") or {}).get("truncated"):
+            warnings.warn(
+                "Agent decisions were truncated by the per-room limit; "
+                "pass a higher limit= to fetch more.",
+                stacklevel=2,
+            )
+        if participant_id is not None:
+            data = [row for row in data if row.get("participantId") == participant_id]
+        return self._convert_output(data, output)
+
+    def get_agent_decision(
+        self, room_id: str, decision_id: str
+    ) -> dict[str, Any]:
+        """Fetch one agent decision with full detail blobs.
+
+        Args:
+            room_id: Room the decision belongs to.
+            decision_id: Decision document ID (``{participantId}_{seq}``).
+
+        Returns:
+            Decision dict including prompt, reasoning chain, peer-model
+            snapshot, and prediction update.
+        """
+        body = self._transport.get(
+            f"data/agent-decisions/room/{room_id}/decision/{decision_id}"
+        )
+        return body.get("data", {})
+
+    def get_agent_runs(
+        self,
+        experiment_id: str,
+        *,
+        output: str = "pandas",
+    ):
+        """Fetch agent run manifests for an experiment.
+
+        One row per agent run: model, provider, token/cost totals, seed,
+        persona ID, and code version. Runs whose room ended abnormally are
+        flagged as orphaned.
+
+        Args:
+            experiment_id: Experiment ID.
+            output: ``"pandas"`` (default), ``"polars"``, or ``"dict"``.
+        """
+        body = self._transport.get(f"data/agent-runs/experiment/{experiment_id}")
+        data = body.get("data", [])
+        return self._convert_output(data, output)
+
+    # ------------------------------------------------------------------
     # Convenience: all data for a participant
     # ------------------------------------------------------------------
 
@@ -470,6 +562,9 @@ class HyperStudy(ExperimentMixin):
             "questionnaire": self.get_questionnaire(participant_id, **common),
             "instructions": self.get_instructions(participant_id, **common),
             "consent": self.get_consent(participant_id, **common),
+            "agent_decisions": self.get_agent_decisions(
+                room_id, scope="room", participant_id=participant_id, output=output
+            ),
         }
 
     # ------------------------------------------------------------------
