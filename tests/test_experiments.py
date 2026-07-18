@@ -100,6 +100,38 @@ def test_get_experiment_config(experiment_single_response):
 
 
 @responses.activate
+def test_export_experiment():
+    """export_experiment returns the portable experiment JSON."""
+    export_response = {
+        "status": "success",
+        "metadata": {
+            "dataType": "experimentExport",
+            "scope": "experiment",
+            "scopeId": "exp_abc123",
+            "filename": "emotion-study-export.json",
+            "mediaAssetsCount": 2,
+        },
+        "data": [
+            {
+                "experiment": {"name": "Emotion Study", "states": []},
+                "mediaAssets": [{"url": "https://cdn.example.com/clip.mp4"}],
+            }
+        ],
+    }
+    responses.get(
+        f"{BASE_URL}/experiments/exp_abc123/export",
+        json=export_response,
+        status=200,
+    )
+    client = HyperStudy(api_key="hst_test_key", base_url=BASE_URL)
+    export = client.export_experiment("exp_abc123")
+
+    assert isinstance(export, dict)
+    assert export["experiment"]["name"] == "Emotion Study"
+    assert len(export["mediaAssets"]) == 1
+
+
+@responses.activate
 def test_create_experiment():
     """create_experiment POSTs to the experiments endpoint."""
     create_response = {

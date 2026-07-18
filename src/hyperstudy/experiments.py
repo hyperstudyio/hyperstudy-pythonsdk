@@ -115,6 +115,17 @@ class ExperimentMixin:
         data = body.get("data", [])
         return data[0] if isinstance(data, list) and data else data
 
+    def export_experiment(self, experiment_id: str) -> dict[str, Any]:
+        """Export an experiment as portable JSON.
+
+        Returns:
+            The export payload (experiment definition plus media-asset
+            manifest), suitable for re-import.
+        """
+        body = self._transport.get(f"experiments/{experiment_id}/export")
+        data = body.get("data", [])
+        return data[0] if isinstance(data, list) and data else data
+
     # ------------------------------------------------------------------
     # Write
     # ------------------------------------------------------------------

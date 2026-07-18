@@ -43,6 +43,7 @@ chat          = hs.get_chat("exp_id")
 videochat     = hs.get_videochat("exp_id")
 sync          = hs.get_sync("exp_id")
 ratings       = hs.get_ratings("exp_id", kind="continuous")
+eyetracking   = hs.get_eyetracking("exp_id")
 components    = hs.get_components("exp_id")
 participants  = hs.get_participants("exp_id")
 rooms         = hs.get_rooms("exp_id")
@@ -51,6 +52,13 @@ rooms         = hs.get_rooms("exp_id")
 questionnaire = hs.get_questionnaire("exp_id")
 instructions  = hs.get_instructions("exp_id")
 consent       = hs.get_consent("exp_id")
+
+# Room-scoped: reconstructed shared-variable timeline
+# -> {"writes", "timeline", "variable_names", "dropped_writes"}
+variables = hs.get_variables("room_id")
+
+# Per-data-type document counts for one participant in a room
+counts = hs.get_counts("participant_id", room_id="room_id")
 ```
 
 ### Output Formats
@@ -95,6 +103,9 @@ exp = hs.get_experiment("exp_id")
 new_exp = hs.create_experiment(name="My Study", description="...")
 hs.update_experiment("exp_id", name="Updated Name")
 hs.delete_experiment("exp_id")
+
+# Portable experiment JSON (definition + media-asset manifest)
+export = hs.export_experiment("exp_id")
 ```
 
 ### Building experiments programmatically (0.3.0+)
@@ -180,6 +191,9 @@ hs.run_more(dep["id"], rooms=5, budget_usd=2.5) # additive batch
 decisions = hs.get_agent_decisions(exp["id"])                    # per-turn logs
 runs = hs.get_agent_runs(exp["id"])                              # run manifests
 detail = hs.get_agent_decision("room_id", "participantId_3")     # full blobs
+
+# --- Cognition authoring catalog ---
+catalog = hs.get_cognition_catalog()  # {"abilities": ..., "recipes": ..., "offlineRecipes": ...}
 ```
 
 Persona methods need the `read:personas` / `write:personas` API-key scopes; deployment launch/control needs `write:deployments`; agent data reads need `read:events`.
@@ -189,8 +203,8 @@ Persona methods need the `read:personas` / `write:personas` API-key scopes; depl
 ```python
 data = hs.get_all_data("participant_id", room_id="room_id")
 # Returns dict with keys: events, recordings, chat, videochat, sync,
-# ratings_continuous, ratings_sparse, components, questionnaire,
-# instructions, consent, agent_decisions
+# ratings_continuous, ratings_sparse, components, eyetracking,
+# questionnaire, instructions, consent, agent_decisions
 ```
 
 ## API Key

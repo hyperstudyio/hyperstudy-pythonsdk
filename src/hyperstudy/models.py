@@ -186,8 +186,9 @@ class Persona(_Model):
     """A reusable AI-agent definition (agent library entry).
 
     The persona owns the agent's identity, model settings, guardrails and
-    (optionally) cognition. ``cognition`` / ``offline_cognition`` are accepted
-    as plain dicts — their schema is experimental and still evolving.
+    (optionally) cognition. ``cognition`` is accepted as a plain dict — its
+    schema is experimental and still evolving. Offline loops live inside
+    ``cognition["config"]["contexts"][<name>]["offline"]``.
     """
 
     name: str = Field(min_length=1)
@@ -204,7 +205,6 @@ class Persona(_Model):
     disable_thinking: Optional[bool] = None
     seed: Optional[int] = None
     cognition: Optional[dict[str, Any]] = None
-    offline_cognition: Optional[dict[str, Any]] = None
     memory_persistence: Optional[str] = None  # "none" (default) | "cross-experiment"
     language: Optional[str] = None
     seed_memories: Optional[list[dict[str, Any]]] = None

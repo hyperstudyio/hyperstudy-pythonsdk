@@ -25,6 +25,11 @@ def _persona_payload(persona: "Persona | None", kwargs: dict[str, Any]) -> dict[
         payload.update(persona.model_dump(by_alias=True, exclude_none=True))
     if kwargs:
         payload.update(camelize_wire(kwargs))
+    # The server hard-discards offlineCognition (offline loops now live inside
+    # cognition.config.contexts.<name>.offline), so never send it — including
+    # when a Persona was rebuilt from an older API response via extra fields.
+    payload.pop("offlineCognition", None)
+    payload.pop("offline_cognition", None)
     return payload
 
 
@@ -101,3 +106,16 @@ class PersonaMixin:
         """
         body = self._transport.post(f"personas/{persona_id}/duplicate")
         return body.get("data", {})
+
+    def get_cognition_catalog(self) -> dict[str, Any]:
+        """Fetch the cognition authoring catalog.
+
+        Lists the valid building blocks for persona ``cognition`` configs.
+        Requires the ``read:personas`` scope.
+
+        Returns:
+            Dict with ``abilities``, ``recipes``, and ``offlineRecipes``.
+        """
+        body = self._transport.get("agent-cognition/catalog")
+        data = body.get("data", [])
+        return data[0] if isinstance(data, list) and data else data

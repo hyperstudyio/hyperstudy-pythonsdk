@@ -20,6 +20,7 @@ class DataType(str, Enum):
     VIDEOCHAT = "videochat"
     SYNC = "sync"
     RATINGS = "ratings"
+    EYETRACKING = "eyetracking"
     COMPONENTS = "components"
     PARTICIPANTS = "participants"
     ROOMS = "rooms"

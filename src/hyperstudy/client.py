@@ -235,6 +235,35 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
             output=output, progress=progress,
         )
 
+    def get_eyetracking(
+        self,
+        scope_id: str,
+        *,
+        scope: str = "experiment",
+        room_id: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        output: str = "pandas",
+        progress: bool = True,
+    ):
+        """Fetch eye-tracking gaze data.
+
+        Args:
+            scope_id: ID of the experiment, room, or participant.
+            scope: ``"experiment"``, ``"room"``, or ``"participant"``.
+            room_id: Required when ``scope="participant"``.
+            limit: Max records. ``None`` fetches all pages.
+            offset: Starting offset.
+            output: ``"pandas"`` (default), ``"polars"``, or ``"dict"``.
+            progress: Show progress bar when paginating.
+        """
+        return self._fetch_data(
+            "eyetracking", scope_id,
+            scope=scope, room_id=room_id,
+            limit=limit, offset=offset,
+            output=output, progress=progress,
+        )
+
     def get_components(
         self,
         scope_id: str,
@@ -293,6 +322,67 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
             limit=limit, offset=offset,
             output=output, progress=progress,
         )
+
+    def get_variables(
+        self,
+        room_id: str,
+        *,
+        output: str = "pandas",
+    ):
+        """Fetch the reconstructed shared-variable timeline for a room.
+
+        Returns a dict with four keys:
+
+        - ``writes`` — the time-ordered write log (one row per variable
+          write: seeded constant, human component response, or agent
+          submit-response, tagged with source and persisted flag), converted
+          per ``output``
+        - ``timeline`` — the derived per-state forward-filled variable
+          snapshot matrix, converted per ``output``
+        - ``variable_names`` — ordered list of every variable seen
+        - ``matrix_columns`` — ordered column set of the timeline matrix
+        - ``dropped_writes`` — writes that failed the server's ground-truth
+          cross-checks (a bug signal; empty is the healthy state)
+        - ``mode`` — the reconstruction mode the server processor ran in
+
+        Args:
+            room_id: Room ID.
+            output: ``"pandas"`` (default), ``"polars"``, or ``"dict"``
+                for the tabular values.
+        """
+        body = self._transport.get(f"data/variables/room/{room_id}")
+        metadata = body.get("metadata") or {}
+        return {
+            "writes": self._convert_output(body.get("data", []), output),
+            "timeline": self._convert_output(metadata.get("timeline") or [], output),
+            "variable_names": metadata.get("variableNames") or [],
+            "matrix_columns": metadata.get("matrixColumns") or [],
+            "dropped_writes": metadata.get("droppedWrites") or [],
+            "mode": metadata.get("mode"),
+        }
+
+    def get_counts(
+        self,
+        participant_id: str,
+        room_id: str,
+    ) -> dict[str, Any]:
+        """Fetch per-data-type document counts for a participant in a room.
+
+        Cheap count queries grouped by data type — useful for checking
+        which data types exist before fetching them.
+
+        Args:
+            participant_id: Participant ID.
+            room_id: Room ID.
+
+        Returns:
+            Dict with ``counts`` and ``hasData`` keyed by data type.
+        """
+        body = self._transport.get(
+            f"data/counts/participant/{participant_id}", params={"roomId": room_id}
+        )
+        data = body.get("data", [])
+        return data[0] if isinstance(data, list) and data else data
 
     # ------------------------------------------------------------------
     # Convenience: category-filtered events
@@ -639,6 +729,7 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
             "ratings_continuous": self.get_ratings(participant_id, kind="continuous", **common),
             "ratings_sparse": self.get_ratings(participant_id, kind="sparse", **common),
             "components": self.get_components(participant_id, **common),
+            "eyetracking": self.get_eyetracking(participant_id, **common),
             "questionnaire": self.get_questionnaire(participant_id, **common),
             "instructions": self.get_instructions(participant_id, **common),
             "consent": self.get_consent(participant_id, **common),

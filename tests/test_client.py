@@ -243,6 +243,126 @@ def test_get_ratings_sparse_flattens_data(api_key, sparse_ratings_response):
 
 
 @responses.activate
+def test_get_eyetracking(api_key, events_response):
+    """get_eyetracking hits the correct endpoint."""
+    responses.get(
+        f"{BASE_URL}/data/eyetracking/experiment/exp_abc123",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_eyetracking("exp_abc123", limit=1000)
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 3
+
+
+@responses.activate
+def test_get_eyetracking_participant_scope(api_key, events_response):
+    """get_eyetracking with scope='participant' passes roomId query param."""
+    responses.get(
+        f"{BASE_URL}/data/eyetracking/participant/user_1",
+        json=events_response,
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    df = client.get_eyetracking(
+        "user_1", scope="participant", room_id="room_xyz", limit=1000
+    )
+    assert len(df) == 3
+    assert "roomId=room_xyz" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_get_variables(api_key):
+    """get_variables returns writes, timeline, variable names, and dropped writes."""
+    responses.get(
+        f"{BASE_URL}/data/variables/room/room_xyz",
+        json={
+            "status": "success",
+            "data": [
+                {"variable": "rating", "value": 7, "source": "human", "persisted": True},
+                {"variable": "condition", "value": "A", "source": "seed", "persisted": True},
+            ],
+            "metadata": {
+                "variableNames": ["condition", "rating"],
+                "timeline": [{"stateId": "s1", "condition": "A", "rating": 7}],
+                "matrixColumns": ["stateId", "condition", "rating"],
+                "droppedWrites": [{"variable": "rating", "reason": "mismatch"}],
+                "mode": "replay",
+            },
+        },
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    result = client.get_variables("room_xyz")
+
+    assert isinstance(result["writes"], pd.DataFrame)
+    assert len(result["writes"]) == 2
+    assert set(result["writes"]["variable"]) == {"rating", "condition"}
+    assert isinstance(result["timeline"], pd.DataFrame)
+    assert len(result["timeline"]) == 1
+    assert result["variable_names"] == ["condition", "rating"]
+    assert result["matrix_columns"] == ["stateId", "condition", "rating"]
+    assert result["dropped_writes"] == [{"variable": "rating", "reason": "mismatch"}]
+    assert result["mode"] == "replay"
+
+
+@responses.activate
+def test_get_variables_dict(api_key):
+    """get_variables with output='dict' returns raw write and timeline lists."""
+    responses.get(
+        f"{BASE_URL}/data/variables/room/room_xyz",
+        json={
+            "status": "success",
+            "data": [{"variable": "rating", "value": 7}],
+            "metadata": {},
+        },
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    result = client.get_variables("room_xyz", output="dict")
+    assert result["writes"] == [{"variable": "rating", "value": 7}]
+    assert result["timeline"] == []
+    assert result["variable_names"] == []
+    assert result["dropped_writes"] == []
+
+
+@responses.activate
+def test_get_counts(api_key):
+    """get_counts passes roomId and unwraps the counts dict."""
+    responses.get(
+        f"{BASE_URL}/data/counts/participant/user_1",
+        json={
+            "status": "success",
+            "data": [
+                {
+                    "participantId": "user_1",
+                    "roomId": "room_xyz",
+                    "counts": {"textchat": 4, "sync": 0},
+                    "hasData": {"textchat": True, "sync": False},
+                }
+            ],
+            "metadata": {},
+        },
+        status=200,
+    )
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    result = client.get_counts("user_1", room_id="room_xyz")
+
+    assert isinstance(result, dict)
+    assert result["counts"]["textchat"] == 4
+    assert result["hasData"]["sync"] is False
+    assert "roomId=room_xyz" in responses.calls[0].request.url
+
+
+def test_get_counts_requires_room_id(api_key):
+    """get_counts requires room_id (the server 400s without it)."""
+    client = HyperStudy(api_key=api_key, base_url=BASE_URL)
+    with pytest.raises(TypeError):
+        client.get_counts("user_1")
+
+
+@responses.activate
 def test_get_sync_with_aggregation(api_key, events_response):
     """get_sync passes aggregationWindow param."""
     responses.get(
@@ -519,7 +639,8 @@ def test_get_all_data(api_key, events_response, pre_experiment_response):
     """get_all_data returns a dict of DataFrames."""
     # Mock all data type endpoints for participant scope
     for dtype in ("events", "recordings", "chat", "videochat", "sync",
-                  "ratings/continuous", "ratings/sparse", "components"):
+                  "ratings/continuous", "ratings/sparse", "components",
+                  "eyetracking"):
         responses.get(
             f"{BASE_URL}/data/{dtype}/participant/user_1",
             json=events_response,
@@ -541,7 +662,7 @@ def test_get_all_data(api_key, events_response, pre_experiment_response):
     assert isinstance(result, dict)
     assert set(result.keys()) == {
         "events", "recordings", "chat", "videochat", "sync",
-        "ratings_continuous", "ratings_sparse", "components",
+        "ratings_continuous", "ratings_sparse", "components", "eyetracking",
         "questionnaire", "instructions", "consent", "agent_decisions",
     }
     for v in result.values():

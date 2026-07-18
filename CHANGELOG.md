@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.0
+
+### Breaking Changes
+
+- **Removed `Persona.offline_cognition`.** The server now hard-discards this field (`offlineCognition` is always null server-side); offline loops live inside `cognition.config.contexts.<name>.offline`. The SDK also strips `offlineCognition` from create/update payloads so personas rebuilt from older API responses never send it.
+
+### Features
+
+- **Eye-tracking data access**: `get_eyetracking(scope_id, scope="experiment"|"room"|"participant", room_id=)` with the standard pagination/output options, plus `DataType.EYETRACKING`. `get_all_data` now includes an `eyetracking` key.
+- **Room variables**: `get_variables(room_id)` — the reconstructed shared-variable timeline for a room. Returns `{writes, timeline, variable_names, dropped_writes}`: the write log (each write tagged with source and persisted flag), the per-state forward-filled snapshot matrix, the ordered variable set, and any writes that failed the server's ground-truth cross-checks (a bug signal).
+- **Participant counts**: `get_counts(participant_id, room_id=)` — cheap per-data-type document counts (`counts` / `hasData`) for a participant in a room.
+- **Experiment export**: `export_experiment(experiment_id)` — portable experiment JSON (definition plus media-asset manifest), suitable for re-import.
+- **Cognition catalog**: `get_cognition_catalog()` — the valid building blocks for persona `cognition` configs (`abilities`, `recipes`, `offlineRecipes`). Requires the `read:personas` scope.
+
 ## v0.4.0
 
 ### Features
