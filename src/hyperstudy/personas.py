@@ -34,8 +34,10 @@ def _persona_payload(persona: "Persona | None", kwargs: dict[str, Any]) -> dict[
     payload.pop("offlineCognition", None)
     payload.pop("offline_cognition", None)
     # Personas no longer have a language: nothing read it, and the server
-    # discards it. Older stored personas still carry the key, so strip it.
-    if payload.pop("language", None):
+    # discards it. Older stored personas still carry the key, so strip it, and
+    # warn only a caller who passed it, since only they have something to fix.
+    payload.pop("language", None)
+    if kwargs.get("language"):
         warnings.warn(
             "Persona 'language' was removed and is ignored by the server. To set "
             "the language participants speak, use the experiment's "
@@ -100,7 +102,8 @@ class PersonaMixin:
         Only the top-level fields you pass are changed; everything else on
         the stored persona is preserved. A nested block you pass (``voice``,
         ``chat``, ``prompt``, ``guardrails``, ``cognition``) replaces the
-        stored block whole, so send all of it::
+        stored block whole, so send all of it. For a persona that has a
+        voice (``voice`` is ``None`` on a text-only persona)::
 
             voice = hs.get_persona(pid)["voice"]
             hs.update_persona(pid, voice={**voice, "speed": 1.1})

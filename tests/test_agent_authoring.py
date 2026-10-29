@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 
 import pydantic
 import pytest
@@ -97,10 +98,12 @@ def test_persona_language_is_not_sent_and_warns(api_key):
 
 @responses.activate
 def test_update_persona_from_stored_doc_drops_language(api_key):
-    """Older stored personas still carry `language`; rebuilding one must not resend it."""
+    """Older stored personas still carry `language`; re-saving one drops it without a warning
+    (the caller did not set it and has nothing to fix)."""
     responses.put(f"{BASE_URL}/personas/p1", json=envelope({"id": "p1"}), status=200)
     stored = {"id": "p1", "name": "Old", "language": "en"}
-    with pytest.warns(UserWarning):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         HyperStudy(api_key=api_key).update_persona("p1", persona=Persona(**stored))
     assert "language" not in _sent()
 

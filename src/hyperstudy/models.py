@@ -29,14 +29,18 @@ _FREEFORM_MAP_FIELDS = frozenset({
     "roleOverrides",
 })
 
-# Fields whose whole value goes on the wire exactly as written. Their keys
-# belong to someone else: a provider's raw request params (extraParams), the
-# voice engine's turn-detection settings, which use OpenAI's snake_case names
+# Fields whose whole value goes on the wire exactly as written, as
+# (parent field, field) pairs; a parent of None is the top level of an
+# experiment or persona payload. Their keys belong to someone else: a
+# provider's raw request params (extraParams), the voice engine's
+# turn-detection settings, which use OpenAI's snake_case names
 # (engineTurnDetection), and names the researcher chose (cognition contexts,
-# stimulus mappings, free-form metadata).
+# stimulus mappings, free-form metadata). Matching on position, not the bare
+# key, keeps a variable or role that happens to be named "metadata" a variable.
 _VERBATIM_FIELDS = frozenset({
-    "extraParams", "engineTurnDetection", "cognition", "stimulusMappings", "metadata",
-    "prolific_config",
+    (None, "extraParams"), (None, "cognition"), (None, "stimulusMappings"),
+    (None, "metadata"), (None, "prolific_config"),
+    ("voiceTurnTaking", "engineTurnDetection"),
 })
 
 # Experiment fields the backend stores under snake_case names.
@@ -53,14 +57,16 @@ def camelize_wire(value: Any, _parent_key: "str | None" = None) -> Any:
     Skips converting the immediate keys of free-form map fields (variables, roles,
     globalComponents, globalComponentsVisibility) — those are user-defined names —
     but still recurses into their values. Values of ``_VERBATIM_FIELDS`` are
-    passed through untouched.
+    passed through untouched. A typed model is dumped in its own wire format.
     """
+    if isinstance(value, BaseModel):
+        return value.model_dump(by_alias=True, exclude_none=True)
     if isinstance(value, dict):
         skip_keys = _parent_key in _FREEFORM_MAP_FIELDS
         out: dict[str, Any] = {}
         for k, v in value.items():
             new_key = k if skip_keys else (_wire_key(k) if isinstance(k, str) else k)
-            if new_key in _VERBATIM_FIELDS:
+            if (_parent_key, new_key) in _VERBATIM_FIELDS:
                 out[new_key] = v
             else:
                 out[new_key] = camelize_wire(v, _parent_key=new_key)
@@ -401,11 +407,16 @@ class Experiment(_Model):
 # of ``output_variable=``) gets the factory's value, not their typo.
 
 
+def _config_extra(extra: dict[str, Any]) -> dict[str, Any]:
+    """A factory's extra kwargs, converted as fields of a component ``config``."""
+    return camelize_wire(extra, _parent_key="config")
+
+
 def show_text(text: str, *, id: Optional[str] = None, **extra: Any) -> FocusComponent:
     """Build a ``showtext`` focus component."""
     return FocusComponent(
         type=ComponentType.SHOW_TEXT,
-        config={**camelize_wire(extra), "text": text},
+        config={**_config_extra(extra), "text": text},
         id=id,
     )
 
@@ -414,7 +425,7 @@ def show_image(url: str, *, id: Optional[str] = None, **extra: Any) -> FocusComp
     """Build a ``showimage`` focus component."""
     return FocusComponent(
         type=ComponentType.SHOW_IMAGE,
-        config={**camelize_wire(extra), "url": url},
+        config={**_config_extra(extra), "url": url},
         id=id,
     )
 
@@ -423,7 +434,7 @@ def show_video(url: str, *, id: Optional[str] = None, **extra: Any) -> FocusComp
     """Build a ``showvideo`` focus component."""
     return FocusComponent(
         type=ComponentType.SHOW_VIDEO,
-        config={**camelize_wire(extra), "url": url},
+        config={**_config_extra(extra), "url": url},
         id=id,
     )
 
@@ -438,7 +449,7 @@ def vas_rating(
     """Build a ``vasrating`` (visual analog scale) focus component."""
     return FocusComponent(
         type=ComponentType.VAS_RATING,
-        config={**camelize_wire(extra), "prompt": prompt, "outputVariable": output_variable},
+        config={**_config_extra(extra), "prompt": prompt, "outputVariable": output_variable},
         id=id,
     )
 
@@ -453,7 +464,7 @@ def text_input(
     """Build a ``textinput`` focus component."""
     return FocusComponent(
         type=ComponentType.TEXT_INPUT,
-        config={**camelize_wire(extra), "prompt": prompt, "outputVariable": output_variable},
+        config={**_config_extra(extra), "prompt": prompt, "outputVariable": output_variable},
         id=id,
     )
 
@@ -470,7 +481,7 @@ def multiple_choice(
     return FocusComponent(
         type=ComponentType.MULTIPLE_CHOICE,
         config={
-            **camelize_wire(extra),
+            **_config_extra(extra),
             "prompt": prompt,
             "options": list(options),
             "outputVariable": output_variable,
@@ -483,7 +494,7 @@ def waiting(duration_ms: int, *, id: Optional[str] = None, **extra: Any) -> Focu
     """Build a ``waiting`` focus component."""
     return FocusComponent(
         type=ComponentType.WAITING,
-        config={**camelize_wire(extra), "durationMs": int(duration_ms)},
+        config={**_config_extra(extra), "durationMs": int(duration_ms)},
         id=id,
     )
 
@@ -500,7 +511,7 @@ def likert_scale(
     return FocusComponent(
         type=ComponentType.LIKERT_SCALE,
         config={
-            **camelize_wire(extra),
+            **_config_extra(extra),
             "prompt": prompt,
             "outputVariable": output_variable,
             "scalePoints": int(scale_points),
@@ -521,7 +532,7 @@ def ranking(
     return FocusComponent(
         type=ComponentType.RANKING,
         config={
-            **camelize_wire(extra),
+            **_config_extra(extra),
             "prompt": prompt,
             "options": list(options),
             "outputVariable": output_variable,

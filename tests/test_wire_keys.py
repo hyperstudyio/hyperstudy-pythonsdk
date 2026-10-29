@@ -98,3 +98,71 @@ def test_schema_fields_are_still_camelized(api_key):
         "exp-1", waiting_room_config={"max_wait_time_ms": 5000}
     )
     assert _sent() == {"waitingRoomConfig": {"maxWaitTimeMs": 5000}}
+
+
+@responses.activate
+def test_typed_models_passed_as_kwargs_are_serialized(api_key):
+    """update_experiment(agent_config=AgentConfig(...)) and update_persona(voice=PersonaVoice(...))."""
+    from hyperstudy import AgentConfig, EngineTurnDetection, PersonaVoice, RealtimeVoice, VoiceTurnTaking
+
+    responses.put(f"{BASE_URL}/experiments/exp-1", json=envelope({"id": "exp-1"}), status=200)
+    responses.put(f"{BASE_URL}/personas/p1", json=envelope({"id": "p1"}), status=200)
+    client = HyperStudy(api_key=api_key)
+
+    client.update_experiment(
+        "exp-1",
+        agent_config=AgentConfig(
+            voice_turn_taking=VoiceTurnTaking(
+                engine_turn_detection=EngineTurnDetection(type="server_vad", silence_duration_ms=800),
+                min_response_delay_ms=250,
+            )
+        ),
+    )
+    client.update_persona(
+        "p1", voice=PersonaVoice(engine="realtime", preset="marin", realtime=RealtimeVoice(provider="openai"))
+    )
+
+    assert _sent(0) == {
+        "agentConfig": {
+            "voiceTurnTaking": {
+                "engineTurnDetection": {"type": "server_vad", "silence_duration_ms": 800},
+                "minResponseDelayMs": 250,
+            }
+        }
+    }
+    assert _sent(1) == {"voice": {"engine": "realtime", "preset": "marin", "realtime": {"provider": "openai"}}}
+
+
+@responses.activate
+def test_user_named_keys_matching_verbatim_fields_are_still_converted(api_key):
+    """A variable or role NAMED like a verbatim field is still a variable or role."""
+    responses.put(f"{BASE_URL}/experiments/exp-1", json=envelope({"id": "exp-1"}), status=200)
+    HyperStudy(api_key=api_key).update_experiment(
+        "exp-1",
+        variables={"metadata": {"initial_value": 1}, "score": {"initial_value": 0}},
+        roles={"cognition": {"participant_count": 1}},
+    )
+    sent = _sent()
+    assert sent["variables"] == {"metadata": {"initialValue": 1}, "score": {"initialValue": 0}}
+    assert sent["roles"] == {"cognition": {"participantCount": 1}}
+
+
+@responses.activate
+def test_verbatim_fields_apply_only_where_they_are_defined(api_key):
+    """`metadata` nested inside a component config is not the experiment's metadata."""
+    responses.put(f"{BASE_URL}/experiments/exp-1", json=envelope({"id": "exp-1"}), status=200)
+    HyperStudy(api_key=api_key).update_experiment(
+        "exp-1",
+        metadata={"lab_notes": "kept"},
+        states=[{"id": "s1", "focus_component": {"type": "showtext", "config": {"metadata": {"font_size": 3}}}}],
+    )
+    sent = _sent()
+    assert sent["metadata"] == {"lab_notes": "kept"}
+    assert sent["states"][0]["focusComponent"]["config"]["metadata"] == {"fontSize": 3}
+
+
+def test_factory_config_extra_named_like_a_verbatim_field_is_converted():
+    from hyperstudy import show_text
+
+    component = show_text("Hello", metadata={"font_size": 3})
+    assert component.config["metadata"] == {"fontSize": 3}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from hyperstudy._http import HttpTransport
 
 
@@ -52,3 +54,13 @@ def test_get_accepts_per_call_timeout_override(monkeypatch):
     assert captured[0]["timeout"] == 300
     assert captured[1]["timeout"] == 30
     assert transport.timeout == 30  # unchanged
+
+
+def test_single_record_rejects_an_empty_array():
+    """A single-object route answering with no object is an error, not an empty record."""
+    from hyperstudy._http import single_record
+    from hyperstudy.exceptions import HyperStudyError
+
+    assert single_record({"data": [{"id": "x"}]}) == {"id": "x"}
+    with pytest.raises(HyperStudyError, match="no record"):
+        single_record({"data": []})

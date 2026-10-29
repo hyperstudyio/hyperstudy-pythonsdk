@@ -37,7 +37,9 @@ def single_record(body: dict) -> dict:
         raise HyperStudyError(
             f"Unexpected response: expected 'data' to be an array, got {type(data).__name__}"
         )
-    return data[0] if data else {}
+    if not data:
+        raise HyperStudyError("Unexpected response: the server returned no record")
+    return data[0]
 
 
 class HttpTransport:

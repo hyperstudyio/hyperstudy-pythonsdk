@@ -4,12 +4,13 @@
 
 ### Breaking Changes
 
-- **Removed `Persona.language`.** The server discarded it and nothing read it. The SDK strips it from persona payloads, so personas rebuilt from older stored documents still save, and warns when a value is dropped. To set the language participants speak, use the experiment's `agent_config.voice_transcription.language`.
+- **Removed `Persona.language`.** The server discarded it and nothing read it. The SDK strips it from persona payloads, so personas rebuilt from older stored documents still save, and warns when you pass `language=`. To set the language participants speak, use the experiment's `agent_config.voice_transcription.language`.
 
 ### Fixes
 
-- **Single-object responses are now returned as objects.** The v3 API always sends `data` as an array, so `get_persona`, `create_persona`, `update_persona`, `duplicate_persona`, `create_deployment`, `get_agent_spend`, `run_more`, `retry_room` and `get_agent_decision` returned a one-element list instead of a dict, and `download_recording` / `download_recordings` raised `AttributeError` for recordings with a `downloadPath`. Test mocks now build the envelope exactly as the server does.
+- **Single-object responses are now returned as objects.** The v3 API always sends `data` as an array, so `get_persona`, `create_persona`, `update_persona`, `duplicate_persona`, `create_deployment`, `get_agent_spend`, `run_more`, `retry_room` and `get_agent_decision` returned a one-element list instead of a dict, and `download_recording` / `download_recordings` raised `AttributeError` for recordings with a `downloadPath`. A single-object response with no record now raises `HyperStudyError` instead of returning `{}`. Test mocks now build the envelope exactly as the server does.
 - **Keys that are not the SDK's own are sent as written** on the kwargs and raw-dict paths. Previously `extra_params={"top_k": 20}` reached a custom provider as `topK`, a cognition context named `post_trial` was stored as `postTrial`, voice turn-detection settings (`silence_duration_ms`, ...) were camelCased and rejected by the server, `prolific_enabled` / `prolific_config` were renamed and dropped, and stimulus mapping names were renamed. Schema fields such as `waiting_room_config` are still converted.
+- **Typed models can be passed as keyword arguments**: `update_experiment(agent_config=AgentConfig(...))`, `update_experiment(waiting_room_config=WaitingRoomConfig(...))` and `update_persona(voice=PersonaVoice(...))` raised `TypeError: Object of type ... is not JSON serializable`.
 - `Persona(display_name=...)` and other undeclared persona fields were sent in snake_case and silently ignored by the server; `display_name` is now a declared field.
 
 ### Features
