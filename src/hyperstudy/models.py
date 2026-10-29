@@ -29,20 +29,41 @@ _FREEFORM_MAP_FIELDS = frozenset({
     "roleOverrides",
 })
 
+# Fields whose whole value goes on the wire exactly as written. Their keys
+# belong to someone else: a provider's raw request params (extraParams), the
+# voice engine's turn-detection settings, which use OpenAI's snake_case names
+# (engineTurnDetection), and names the researcher chose (cognition contexts,
+# stimulus mappings, free-form metadata).
+_VERBATIM_FIELDS = frozenset({
+    "extraParams", "engineTurnDetection", "cognition", "stimulusMappings", "metadata",
+    "prolific_config",
+})
+
+# Experiment fields the backend stores under snake_case names.
+_SNAKE_CASE_FIELDS = frozenset({"prolific_enabled", "prolific_config"})
+
+
+def _wire_key(key: str) -> str:
+    return key if key in _SNAKE_CASE_FIELDS else to_camel(key)
+
 
 def camelize_wire(value: Any, _parent_key: "str | None" = None) -> Any:
     """Recursively convert snake_case dict keys to camelCase for the wire format.
 
     Skips converting the immediate keys of free-form map fields (variables, roles,
     globalComponents, globalComponentsVisibility) — those are user-defined names —
-    but still recurses into their values.
+    but still recurses into their values. Values of ``_VERBATIM_FIELDS`` are
+    passed through untouched.
     """
     if isinstance(value, dict):
         skip_keys = _parent_key in _FREEFORM_MAP_FIELDS
         out: dict[str, Any] = {}
         for k, v in value.items():
-            new_key = k if skip_keys else (to_camel(k) if isinstance(k, str) else k)
-            out[new_key] = camelize_wire(v, _parent_key=new_key)
+            new_key = k if skip_keys else (_wire_key(k) if isinstance(k, str) else k)
+            if new_key in _VERBATIM_FIELDS:
+                out[new_key] = v
+            else:
+                out[new_key] = camelize_wire(v, _parent_key=new_key)
         return out
     if isinstance(value, list):
         return [camelize_wire(v, _parent_key=_parent_key) for v in value]

@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
-from pydantic.alias_generators import to_camel
 
 from ._display import ExperimentInfo
 from ._http import HttpTransport, single_record
@@ -43,9 +42,7 @@ def _build_experiment_payload(
         raise TypeError(
             f"experiment must be an Experiment or dict, got {type(experiment).__name__}"
         )
-    for key, value in overrides.items():
-        ck = to_camel(key)
-        payload[ck] = camelize_wire(value, _parent_key=ck)
+    payload.update(camelize_wire(overrides))
     return payload
 
 
