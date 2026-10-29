@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.4.2
+
+### Breaking Changes
+
+- **Removed `Persona.language`.** The server discarded it and nothing read it. The SDK strips it from persona payloads, so personas rebuilt from older stored documents still save, and warns when it drops a value someone set. To set the language participants speak, use the experiment's `agent_config.voice_transcription.language`.
+
+### Fixes
+
+- **Single-object responses are now returned as objects.** The v3 API always sends `data` as an array, so `get_persona`, `create_persona`, `update_persona`, `duplicate_persona`, `create_deployment`, `get_agent_spend`, `run_more`, `retry_room` and `get_agent_decision` returned a one-element list instead of a dict, and `download_recording` / `download_recordings` raised `AttributeError` for recordings with a `downloadPath`. A single-object response with no record now raises `HyperStudyError` instead of returning `{}`. Test mocks now build the envelope exactly as the server does.
+- **Keys that are not the SDK's own are sent as written** on the kwargs and raw-dict paths. Previously `extra_params={"top_k": 20}` reached a custom provider as `topK`, a cognition context named `post_trial` was stored as `postTrial`, voice turn-detection settings (`silence_duration_ms`, ...) were camelCased and rejected by the server, `prolific_enabled` / `prolific_config` were renamed and dropped, and stimulus mapping names were renamed. Schema fields such as `waiting_room_config` are still converted.
+- **Typed models can be passed as keyword arguments**: `update_experiment(agent_config=AgentConfig(...))`, `update_experiment(waiting_room_config=WaitingRoomConfig(...))` and `update_persona(voice=PersonaVoice(...))` raised `TypeError: Object of type ... is not JSON serializable`.
+- `Persona(display_name=...)` and other undeclared persona fields were sent in snake_case and silently ignored by the server; `display_name` is now a declared field.
+
+### Features
+
+- **Voice agent conversations**: `get_voice(scope_id, scope=, deployment_id=, room_id=, include_context=, order=)` returns one row per voice event: every speaker's utterances with transcripts, discarded and silent agent replies, what the voice engine was told, and engine connection drops. `DataType.VOICE`; `get_all_data` includes `voice`. Requires the `read:events` scope.
+- **Voice personas**: `Persona.voice` (`PersonaVoice`, `RealtimeVoice`: engine, preset, speed, style, realtime provider and model), `Persona.display_name`, and `Persona.chat` (`PersonaChat`: `initiate`, `initiate_delay_ms`).
+- **Voice settings per experiment**: `AgentConfig.voice_turn_taking` (`VoiceTurnTaking` with `EngineTurnDetection`, sent in the engine's own snake_case) and `AgentConfig.voice_transcription` (`VoiceTranscription`). Ranges mirror the server's validators, so mistakes fail when the model is built.
+- **Experiment fields**: `visibility`, `tags`, `enable_participant_messaging`, `experimenter_message_style` (`ExperimenterMessageStyle`), `stimulus_mappings`, `device_integration`, `prolific_enabled`, `prolific_config`.
+- **Data filters**: `get_components(component_type=, state_id=, completed=, start_time=, end_time=, sort=, order=)`, `get_participants(completion_code=, sort=, order=)`, `get_rooms(sort=, order=)`.
+- **`check_data_access(experiment_id)`**: `{canView, canExport}` without fetching data.
+
+### Notes
+
+- `update_persona` and `update_experiment` replace a nested block (`voice`, `chat`, `prompt`, `guardrails`, `agent_config`, ...) whole; pass the complete block to change one setting in it. Only an experiment's or persona's owner, or an organization admin, may change its `visibility`.
+- New server-side columns arrive in the existing DataFrames with no SDK change: event clock fields (`clientTime`, `timestampSource`, `clockOffsetMs`, `rawOnset`, `clockOffsetApplied`), `decisionError` on agent decisions, and `completionReason` / `agentStartFailures` on rooms.
+
 ## v0.4.1
 
 ### Breaking Changes

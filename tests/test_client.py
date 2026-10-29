@@ -640,7 +640,7 @@ def test_get_all_data(api_key, events_response, pre_experiment_response):
     # Mock all data type endpoints for participant scope
     for dtype in ("events", "recordings", "chat", "videochat", "sync",
                   "ratings/continuous", "ratings/sparse", "components",
-                  "eyetracking"):
+                  "eyetracking", "voice"):
         responses.get(
             f"{BASE_URL}/data/{dtype}/participant/user_1",
             json=events_response,
@@ -663,7 +663,7 @@ def test_get_all_data(api_key, events_response, pre_experiment_response):
     assert set(result.keys()) == {
         "events", "recordings", "chat", "videochat", "sync",
         "ratings_continuous", "ratings_sparse", "components", "eyetracking",
-        "questionnaire", "instructions", "consent", "agent_decisions",
+        "voice", "questionnaire", "instructions", "consent", "agent_decisions",
     }
     for v in result.values():
         assert isinstance(v, pd.DataFrame)

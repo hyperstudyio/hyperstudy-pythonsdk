@@ -5,10 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
-from pydantic.alias_generators import to_camel
 
 from ._display import ExperimentInfo
-from ._http import HttpTransport
+from ._http import HttpTransport, single_record
 from ._pagination import fetch_all_pages
 from .models import camelize_wire
 
@@ -43,9 +42,7 @@ def _build_experiment_payload(
         raise TypeError(
             f"experiment must be an Experiment or dict, got {type(experiment).__name__}"
         )
-    for key, value in overrides.items():
-        ck = to_camel(key)
-        payload[ck] = camelize_wire(value, _parent_key=ck)
+    payload.update(camelize_wire(overrides))
     return payload
 
 
@@ -105,15 +102,13 @@ class ExperimentMixin:
             An :class:`ExperimentInfo` object (dict-like, with ``_repr_html_``).
         """
         body = self._transport.get(f"experiments/{experiment_id}")
-        data = body.get("data", [])
-        record = data[0] if isinstance(data, list) and data else data
+        record = single_record(body)
         return ExperimentInfo(record)
 
     def get_experiment_config(self, experiment_id: str) -> dict[str, Any]:
         """Get raw experiment config (lightweight, no enrichment)."""
         body = self._transport.get(f"experiments/{experiment_id}/config")
-        data = body.get("data", [])
-        return data[0] if isinstance(data, list) and data else data
+        return single_record(body)
 
     def export_experiment(self, experiment_id: str) -> dict[str, Any]:
         """Export an experiment as portable JSON.
@@ -123,8 +118,7 @@ class ExperimentMixin:
             manifest), suitable for re-import.
         """
         body = self._transport.get(f"experiments/{experiment_id}/export")
-        data = body.get("data", [])
-        return data[0] if isinstance(data, list) and data else data
+        return single_record(body)
 
     # ------------------------------------------------------------------
     # Write
@@ -171,8 +165,7 @@ class ExperimentMixin:
                 "(pass name=... or experiment=Experiment(name=...))"
             )
         body = self._transport.post("experiments", json=payload)
-        data = body.get("data", [])
-        record = data[0] if isinstance(data, list) and data else data
+        record = single_record(body)
         return ExperimentInfo(record)
 
     def update_experiment(
@@ -183,6 +176,11 @@ class ExperimentMixin:
         **kwargs,
     ) -> dict[str, Any]:
         """Update an experiment.
+
+        Each top-level field you pass replaces the stored one whole: passing
+        ``agent_config=AgentConfig(voice_turn_taking=...)`` also clears any
+        stored ``role_overrides``, so send the complete ``agent_config``.
+        Only the owner or an organization admin may change ``visibility``.
 
         Args:
             experiment_id: ID of the experiment to update.
@@ -201,8 +199,7 @@ class ExperimentMixin:
                 "(pass experiment=... or keyword fields)."
             )
         body = self._transport.put(f"experiments/{experiment_id}", json=payload)
-        data = body.get("data", [])
-        return data[0] if isinstance(data, list) and data else data
+        return single_record(body)
 
     def validate_experiment(
         self,
@@ -221,8 +218,7 @@ class ExperimentMixin:
             raise TypeError("validate_experiment requires an Experiment or dict")
         payload = _build_experiment_payload(experiment)
         body = self._transport.post("experiments/validate", json=payload)
-        data = body.get("data", [])
-        return data[0] if isinstance(data, list) and data else data
+        return single_record(body)
 
     def delete_experiment(
         self, experiment_id: str, *, skip_data_check: bool = False

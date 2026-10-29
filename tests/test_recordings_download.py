@@ -5,6 +5,8 @@ import pytest
 import responses
 import hyperstudy
 
+from .conftest import envelope
+
 BASE_URL = "https://api.hyperstudy.io/api/v3"
 
 
@@ -80,7 +82,7 @@ def test_redownload_on_filesize_mismatch(tmp_path):
     responses.add(
         responses.GET,
         f"{BASE_URL}/data/recordings/download/room_2/EG_002",
-        json={"status": "success", "data": {"url": "https://signed.example/Bob.mp4"}},
+        json=envelope({"url": "https://signed.example/Bob.mp4"}),
         status=200,
     )
     # GCS signed URL
@@ -110,7 +112,7 @@ def test_download_recording_mints_signed_url(tmp_path):
     responses.add(
         responses.GET,
         f"{base}/data/recordings/download/room_EXP_1_a/EG_x",
-        json={"status": "success", "data": {"url": "https://signed.example/x.mp4"}},
+        json=envelope({"url": "https://signed.example/x.mp4"}),
         status=200,
     )
     # 2) the signed url serves bytes

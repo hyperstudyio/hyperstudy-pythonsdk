@@ -7,7 +7,10 @@ Personas are reusable AI-agent definitions. These methods target the
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any
+
+from ._http import single_record
 
 if TYPE_CHECKING:
     from .models import Persona
@@ -30,6 +33,17 @@ def _persona_payload(persona: "Persona | None", kwargs: dict[str, Any]) -> dict[
     # when a Persona was rebuilt from an older API response via extra fields.
     payload.pop("offlineCognition", None)
     payload.pop("offline_cognition", None)
+    # Personas no longer have a language: nothing read it, and the server
+    # discards it. Older stored personas still carry the key, so strip it. It
+    # was stored as null unless someone set it, so a value means someone
+    # believed it did something: tell them, wherever it came from.
+    if payload.pop("language", None):
+        warnings.warn(
+            "Persona 'language' was removed and is ignored by the server. To set "
+            "the language participants speak, use the experiment's "
+            "agent_config.voice_transcription.language.",
+            stacklevel=3,
+        )
     return payload
 
 
@@ -48,7 +62,7 @@ class PersonaMixin:
     def get_persona(self, persona_id: str) -> dict[str, Any]:
         """Get one persona by ID."""
         body = self._transport.get(f"personas/{persona_id}")
-        return body.get("data", {})
+        return single_record(body)
 
     def create_persona(
         self,
@@ -74,7 +88,7 @@ class PersonaMixin:
         if not payload.get("name"):
             raise ValueError("Persona name is required")
         body = self._transport.post("personas", json=payload)
-        return body.get("data", {})
+        return single_record(body)
 
     def update_persona(
         self,
@@ -85,14 +99,22 @@ class PersonaMixin:
     ) -> dict[str, Any]:
         """Update a persona (merge-patch).
 
-        Only the fields you pass are changed; everything else on the stored
-        persona is preserved.
+        Only the top-level fields you pass are changed; everything else on
+        the stored persona is preserved. A nested block you pass (``voice``,
+        ``chat``, ``prompt``, ``guardrails``, ``cognition``) replaces the
+        stored block whole, so send all of it. For a persona that has a
+        voice (``voice`` is ``None`` on a text-only persona)::
+
+            voice = hs.get_persona(pid)["voice"]
+            hs.update_persona(pid, voice={**voice, "speed": 1.1})
+
+        Only the owner or an organization admin may change ``visibility``.
         """
         payload = _persona_payload(persona, kwargs)
         if not payload:
             raise ValueError("No fields to update")
         body = self._transport.put(f"personas/{persona_id}", json=payload)
-        return body.get("data", {})
+        return single_record(body)
 
     def delete_persona(self, persona_id: str) -> None:
         """Delete a persona."""
@@ -105,7 +127,7 @@ class PersonaMixin:
             The new persona (named ``"<original name> (copy)"``).
         """
         body = self._transport.post(f"personas/{persona_id}/duplicate")
-        return body.get("data", {})
+        return single_record(body)
 
     def get_cognition_catalog(self) -> dict[str, Any]:
         """Fetch the cognition authoring catalog.
@@ -117,5 +139,4 @@ class PersonaMixin:
             Dict with ``abilities``, ``recipes``, and ``offlineRecipes``.
         """
         body = self._transport.get("agent-cognition/catalog")
-        data = body.get("data", [])
-        return data[0] if isinstance(data, list) and data else data
+        return single_record(body)

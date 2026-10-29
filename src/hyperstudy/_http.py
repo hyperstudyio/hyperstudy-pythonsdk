@@ -25,6 +25,23 @@ _STATUS_MAP = {
 }
 
 
+def single_record(body: dict) -> dict:
+    """Return the one record of a single-object response.
+
+    The v3 envelope always carries ``data`` as an array: a route that responds
+    with one object (a persona, a created deployment, a signed download URL)
+    arrives as ``[obj]``.
+    """
+    data = body.get("data")
+    if not isinstance(data, list):
+        raise HyperStudyError(
+            f"Unexpected response: expected 'data' to be an array, got {type(data).__name__}"
+        )
+    if not data or data[0] is None:
+        raise HyperStudyError("Unexpected response: the server returned no record")
+    return data[0]
+
+
 class HttpTransport:
     """Thin wrapper around ``requests.Session`` for the HyperStudy API.
 

@@ -10,7 +10,7 @@ import responses
 
 from hyperstudy import Guardrails, HyperStudy, Persona, PromptLayer
 
-from .conftest import BASE_URL
+from .conftest import BASE_URL, envelope
 
 
 @pytest.fixture
@@ -30,13 +30,9 @@ PERSONA_DOC = {
 }
 
 
-def _envelope(data):
-    return {"status": "success", "data": data, "metadata": {}}
-
-
 @responses.activate
 def test_list_personas(api_key):
-    responses.get(f"{BASE_URL}/personas", json=_envelope([PERSONA_DOC]), status=200)
+    responses.get(f"{BASE_URL}/personas", json=envelope([PERSONA_DOC]), status=200)
 
     client = HyperStudy(api_key=api_key)
     df = client.list_personas()
@@ -47,7 +43,7 @@ def test_list_personas(api_key):
 
 @responses.activate
 def test_get_persona(api_key):
-    responses.get(f"{BASE_URL}/personas/persona-1", json=_envelope(PERSONA_DOC), status=200)
+    responses.get(f"{BASE_URL}/personas/persona-1", json=envelope(PERSONA_DOC), status=200)
 
     client = HyperStudy(api_key=api_key)
     persona = client.get_persona("persona-1")
@@ -56,7 +52,7 @@ def test_get_persona(api_key):
 
 @responses.activate
 def test_create_persona_typed_builder_camelizes(api_key):
-    responses.post(f"{BASE_URL}/personas", json=_envelope(PERSONA_DOC), status=201)
+    responses.post(f"{BASE_URL}/personas", json=envelope(PERSONA_DOC), status=201)
 
     client = HyperStudy(api_key=api_key)
     persona = Persona(
@@ -79,7 +75,7 @@ def test_create_persona_typed_builder_camelizes(api_key):
 
 @responses.activate
 def test_create_persona_kwargs(api_key):
-    responses.post(f"{BASE_URL}/personas", json=_envelope(PERSONA_DOC), status=201)
+    responses.post(f"{BASE_URL}/personas", json=envelope(PERSONA_DOC), status=201)
 
     client = HyperStudy(api_key=api_key)
     client.create_persona(name="Kwarg Agent", memory_persistence="cross-experiment")
@@ -97,7 +93,7 @@ def test_create_persona_requires_name(api_key):
 
 @responses.activate
 def test_update_persona_merge_patch_sends_only_given_fields(api_key):
-    responses.put(f"{BASE_URL}/personas/persona-1", json=_envelope(PERSONA_DOC), status=200)
+    responses.put(f"{BASE_URL}/personas/persona-1", json=envelope(PERSONA_DOC), status=200)
 
     client = HyperStudy(api_key=api_key)
     client.update_persona("persona-1", description="Updated")
@@ -119,8 +115,8 @@ def test_create_persona_strips_offline_cognition(api_key):
     Covers both a Persona rebuilt from an older API response (extra field)
     and the snake_case kwargs path. Offline loops now live inside
     cognition.config.contexts.<name>.offline."""
-    responses.post(f"{BASE_URL}/personas", json=_envelope(PERSONA_DOC), status=201)
-    responses.post(f"{BASE_URL}/personas", json=_envelope(PERSONA_DOC), status=201)
+    responses.post(f"{BASE_URL}/personas", json=envelope(PERSONA_DOC), status=201)
+    responses.post(f"{BASE_URL}/personas", json=envelope(PERSONA_DOC), status=201)
 
     client = HyperStudy(api_key=api_key)
 
@@ -148,7 +144,7 @@ def test_create_persona_strips_offline_cognition(api_key):
 @responses.activate
 def test_update_persona_strips_offline_cognition(api_key):
     """update_persona also drops offlineCognition from the payload."""
-    responses.put(f"{BASE_URL}/personas/persona-1", json=_envelope(PERSONA_DOC), status=200)
+    responses.put(f"{BASE_URL}/personas/persona-1", json=envelope(PERSONA_DOC), status=200)
 
     client = HyperStudy(api_key=api_key)
     client.update_persona("persona-1", description="Updated", offline_cognition={"loops": []})
@@ -172,7 +168,7 @@ def test_get_cognition_catalog(api_key):
     }
     # The v3 envelope array-wraps non-array data; the client unwraps it.
     responses.get(
-        f"{BASE_URL}/agent-cognition/catalog", json=_envelope([catalog]), status=200
+        f"{BASE_URL}/agent-cognition/catalog", json=envelope([catalog]), status=200
     )
 
     client = HyperStudy(api_key=api_key)
@@ -184,10 +180,10 @@ def test_get_cognition_catalog(api_key):
 
 @responses.activate
 def test_delete_and_duplicate_persona(api_key):
-    responses.delete(f"{BASE_URL}/personas/persona-1", json=_envelope({"deleted": True}), status=200)
+    responses.delete(f"{BASE_URL}/personas/persona-1", json=envelope({"deleted": True}), status=200)
     responses.post(
         f"{BASE_URL}/personas/persona-1/duplicate",
-        json=_envelope({**PERSONA_DOC, "id": "persona-2", "name": "Curious Undergrad (copy)"}),
+        json=envelope({**PERSONA_DOC, "id": "persona-2", "name": "Curious Undergrad (copy)"}),
         status=201,
     )
 

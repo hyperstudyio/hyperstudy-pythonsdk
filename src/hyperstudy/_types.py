@@ -17,6 +17,7 @@ class DataType(str, Enum):
     EVENTS = "events"
     RECORDINGS = "recordings"
     CHAT = "chat"
+    VOICE = "voice"
     VIDEOCHAT = "videochat"
     SYNC = "sync"
     RATINGS = "ratings"

@@ -33,17 +33,24 @@ from .models import (
     AgentConfig,
     ComponentType,
     DisconnectTimeout,
+    EngineTurnDetection,
     Experiment,
+    ExperimenterMessageStyle,
     FocusComponent,
     GlobalComponentType,
     Guardrails,
     InstructionsPage,
     Persona,
+    PersonaChat,
+    PersonaVoice,
     PostExperimentQuestionnaire,
     PromptLayer,
+    RealtimeVoice,
     Role,
     State,
     TransitionRules,
+    VoiceTranscription,
+    VoiceTurnTaking,
     WaitingRoomConfig,
     likert_scale,
     multiple_choice,
@@ -56,7 +63,7 @@ from .models import (
     waiting,
 )
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 __all__ = [
     "HyperStudy",
@@ -82,7 +89,14 @@ __all__ = [
     "AgentConfig",
     "PromptLayer",
     "Persona",
+    "PersonaVoice",
+    "RealtimeVoice",
+    "PersonaChat",
     "Guardrails",
+    "VoiceTurnTaking",
+    "EngineTurnDetection",
+    "VoiceTranscription",
+    "ExperimenterMessageStyle",
     "TransitionRules",
     "WaitingRoomConfig",
     "DisconnectTimeout",
