@@ -34,10 +34,10 @@ def _persona_payload(persona: "Persona | None", kwargs: dict[str, Any]) -> dict[
     payload.pop("offlineCognition", None)
     payload.pop("offline_cognition", None)
     # Personas no longer have a language: nothing read it, and the server
-    # discards it. Older stored personas still carry the key, so strip it, and
-    # warn only a caller who passed it, since only they have something to fix.
-    payload.pop("language", None)
-    if kwargs.get("language"):
+    # discards it. Older stored personas still carry the key, so strip it. It
+    # was stored as null unless someone set it, so a value means someone
+    # believed it did something: tell them, wherever it came from.
+    if payload.pop("language", None):
         warnings.warn(
             "Persona 'language' was removed and is ignored by the server. To set "
             "the language participants speak, use the experiment's "

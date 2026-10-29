@@ -4,7 +4,7 @@
 
 ### Breaking Changes
 
-- **Removed `Persona.language`.** The server discarded it and nothing read it. The SDK strips it from persona payloads, so personas rebuilt from older stored documents still save, and warns when you pass `language=`. To set the language participants speak, use the experiment's `agent_config.voice_transcription.language`.
+- **Removed `Persona.language`.** The server discarded it and nothing read it. The SDK strips it from persona payloads, so personas rebuilt from older stored documents still save, and warns when it drops a value someone set. To set the language participants speak, use the experiment's `agent_config.voice_transcription.language`.
 
 ### Fixes
 

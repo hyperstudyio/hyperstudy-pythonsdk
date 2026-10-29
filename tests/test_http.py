@@ -64,3 +64,11 @@ def test_single_record_rejects_an_empty_array():
     assert single_record({"data": [{"id": "x"}]}) == {"id": "x"}
     with pytest.raises(HyperStudyError, match="no record"):
         single_record({"data": []})
+
+
+def test_single_record_rejects_a_null_record():
+    from hyperstudy._http import single_record
+    from hyperstudy.exceptions import HyperStudyError
+
+    with pytest.raises(HyperStudyError, match="no record"):
+        single_record({"data": [None]})

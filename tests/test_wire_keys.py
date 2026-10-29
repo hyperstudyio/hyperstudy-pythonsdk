@@ -166,3 +166,30 @@ def test_factory_config_extra_named_like_a_verbatim_field_is_converted():
 
     component = show_text("Hello", metadata={"font_size": 3})
     assert component.config["metadata"] == {"fontSize": 3}
+
+
+@responses.activate
+def test_typed_model_inside_a_verbatim_field_is_serialized(api_key):
+    from hyperstudy import EngineTurnDetection
+
+    responses.put(f"{BASE_URL}/experiments/exp-1", json=envelope({"id": "exp-1"}), status=200)
+    HyperStudy(api_key=api_key).update_experiment(
+        "exp-1",
+        agent_config={"voice_turn_taking": {
+            "engine_turn_detection": EngineTurnDetection(type="server_vad", silence_duration_ms=800),
+        }},
+    )
+    assert _sent()["agentConfig"]["voiceTurnTaking"]["engineTurnDetection"] == {
+        "type": "server_vad", "silence_duration_ms": 800,
+    }
+
+
+def test_models_module_exports_every_model():
+    import hyperstudy
+    import hyperstudy.models as models
+
+    exported_models = {
+        name for name in hyperstudy.__all__
+        if isinstance(getattr(hyperstudy, name), type) and issubclass(getattr(hyperstudy, name), models.BaseModel)
+    }
+    assert exported_models <= set(models.__all__)

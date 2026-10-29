@@ -37,7 +37,7 @@ def single_record(body: dict) -> dict:
         raise HyperStudyError(
             f"Unexpected response: expected 'data' to be an array, got {type(data).__name__}"
         )
-    if not data:
+    if not data or data[0] is None:
         raise HyperStudyError("Unexpected response: the server returned no record")
     return data[0]
 

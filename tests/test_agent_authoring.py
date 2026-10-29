@@ -98,13 +98,30 @@ def test_persona_language_is_not_sent_and_warns(api_key):
 
 @responses.activate
 def test_update_persona_from_stored_doc_drops_language(api_key):
-    """Older stored personas still carry `language`; re-saving one drops it without a warning
-    (the caller did not set it and has nothing to fix)."""
+    """A stored persona with a language someone set: dropped, and they are told."""
     responses.put(f"{BASE_URL}/personas/p1", json=envelope({"id": "p1"}), status=200)
     stored = {"id": "p1", "name": "Old", "language": "en"}
+    with pytest.warns(UserWarning, match="voice_transcription.language"):
+        HyperStudy(api_key=api_key).update_persona("p1", persona=Persona(**stored))
+    assert "language" not in _sent()
+
+
+@responses.activate
+def test_typed_persona_language_warns(api_key):
+    responses.post(f"{BASE_URL}/personas", json=envelope({"id": "p1"}), status=201)
+    with pytest.warns(UserWarning, match="voice_transcription.language"):
+        HyperStudy(api_key=api_key).create_persona(persona=Persona(name="x", language="en"))
+    assert "language" not in _sent()
+
+
+@responses.activate
+def test_stored_persona_with_unset_language_is_silent(api_key):
+    """The old field was stored as null when nobody set it; re-saving such a persona is quiet."""
+    responses.put(f"{BASE_URL}/personas/p1", json=envelope({"id": "p1"}), status=200)
+    stored = {"id": "p1", "name": "Old", "language": None}
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        HyperStudy(api_key=api_key).update_persona("p1", persona=Persona(**stored))
+        HyperStudy(api_key=api_key).update_persona("p1", **stored)
     assert "language" not in _sent()
 
 

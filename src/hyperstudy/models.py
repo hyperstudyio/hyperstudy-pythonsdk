@@ -51,23 +51,32 @@ def _wire_key(key: str) -> str:
     return key if key in _SNAKE_CASE_FIELDS else to_camel(key)
 
 
+def _dump(model: BaseModel) -> dict[str, Any]:
+    return model.model_dump(by_alias=True, exclude_none=True)
+
+
 def camelize_wire(value: Any, _parent_key: "str | None" = None) -> Any:
     """Recursively convert snake_case dict keys to camelCase for the wire format.
 
     Skips converting the immediate keys of free-form map fields (variables, roles,
     globalComponents, globalComponentsVisibility) — those are user-defined names —
     but still recurses into their values. Values of ``_VERBATIM_FIELDS`` are
-    passed through untouched. A typed model is dumped in its own wire format.
+    passed through untouched; their positions are relative to the payload root,
+    so call this on a whole experiment or persona payload, not a sub-dict.
+
+    A typed model is dumped in its own wire format, the same one the typed
+    builders send: its declared fields are aliased and its dict-valued fields
+    are sent as written.
     """
     if isinstance(value, BaseModel):
-        return value.model_dump(by_alias=True, exclude_none=True)
+        return _dump(value)
     if isinstance(value, dict):
         skip_keys = _parent_key in _FREEFORM_MAP_FIELDS
         out: dict[str, Any] = {}
         for k, v in value.items():
             new_key = k if skip_keys else (_wire_key(k) if isinstance(k, str) else k)
             if (_parent_key, new_key) in _VERBATIM_FIELDS:
-                out[new_key] = v
+                out[new_key] = _dump(v) if isinstance(v, BaseModel) else v
             else:
                 out[new_key] = camelize_wire(v, _parent_key=new_key)
         return out
@@ -238,7 +247,7 @@ class AgentConfig(_Model):
     """
 
     role_overrides: Optional[dict[str, PromptLayer]] = None
-    pacing: Optional[dict[str, Any]] = None
+    pacing: Optional[dict[str, Any]] = None  # sent as written: {"readingOffsetMs": 300, ...}
     seed: Optional[int] = None
     voice_turn_taking: Optional[VoiceTurnTaking] = None
     voice_transcription: Optional[VoiceTranscription] = None
@@ -314,7 +323,7 @@ class Persona(_Model):
     memory_persistence: Optional[str] = None  # "none" (default) | "cross-experiment"
     seed_memories: Optional[list[dict[str, Any]]] = None
     guardrails: Optional[Guardrails] = None
-    pacing: Optional[dict[str, Any]] = None
+    pacing: Optional[dict[str, Any]] = None  # sent as written: {"readingOffsetMs": 300, ...}
     chat: Optional[PersonaChat] = None
     voice: Optional[PersonaVoice] = None
     visibility: Optional[str] = None  # private (default) | organization | public
@@ -557,6 +566,18 @@ __all__ = [
     "DisconnectTimeout",
     "InstructionsPage",
     "PostExperimentQuestionnaire",
+    "ExperimenterMessageStyle",
+    # Agent models
+    "AgentConfig",
+    "PromptLayer",
+    "VoiceTurnTaking",
+    "EngineTurnDetection",
+    "VoiceTranscription",
+    "Persona",
+    "PersonaVoice",
+    "RealtimeVoice",
+    "PersonaChat",
+    "Guardrails",
     # Factories
     "show_text",
     "show_image",
