@@ -146,6 +146,69 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
             output=output, progress=progress,
         )
 
+    def get_voice(
+        self,
+        scope_id: str,
+        *,
+        scope: str = "experiment",
+        deployment_id: str | None = None,
+        room_id: str | None = None,
+        include_context: bool = True,
+        order: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        output: str = "pandas",
+        progress: bool = True,
+    ):
+        """Fetch voice agent conversations, one flat row per voice event.
+
+        ``kind`` says what a row is:
+
+        - ``utterance``: a speech turn that reached the room. ``speaker`` is
+          ``participant`` or ``agent``; ``transcript`` is what was said (for an
+          agent, the generated text).
+        - ``discarded``: a false start, or an agent reply dropped before any
+          of it was heard.
+        - ``response``: an agent reply that acted without speaking, such as
+          answering an on-screen question (see ``toolCalls``).
+        - ``context``: what the voice engine was told (``contextKind``,
+          ``contextText``).
+        - ``connection``: the engine connection was lost, restored or failed
+          (``connectionEvent``); the study was paused meanwhile.
+
+        Agent rows also report how much of the generated speech the room
+        heard (``heardMs``, ``generatedMs``, ``truncated``) and
+        ``responseLatencyMs``, from the participant's end of speech to the
+        agent's first audio.
+
+        Participant scope returns only that participant's own events. For a
+        whole conversation, every speaker plus what the engine was told, use
+        ``scope="room"``. Requires the ``read:events`` scope.
+
+        Args:
+            scope_id: ID of the experiment, room, or participant.
+            scope: ``"experiment"``, ``"room"``, or ``"participant"``.
+            deployment_id: Filter by deployment (experiment scope only).
+            room_id: Narrow a participant's events to one room.
+            include_context: Include ``context`` rows (default True).
+            order: ``"asc"`` (default) or ``"desc"`` by time.
+            limit: Max records. ``None`` fetches all pages.
+            offset: Starting offset.
+            output: ``"pandas"`` (default), ``"polars"``, or ``"dict"``.
+            progress: Show progress bar when paginating.
+        """
+        extra: dict[str, Any] = {}
+        if not include_context:
+            extra["includeContext"] = "false"
+        return self._fetch_data(
+            "voice", scope_id,
+            scope=scope, deployment_id=deployment_id, room_id=room_id,
+            order=order,
+            limit=limit, offset=offset,
+            output=output, progress=progress,
+            **extra,
+        )
+
     def get_videochat(
         self,
         scope_id: str,
@@ -271,17 +334,41 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
         scope: str = "experiment",
         deployment_id: str | None = None,
         room_id: str | None = None,
+        component_type: str | None = None,
+        state_id: str | None = None,
+        completed: bool | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
         limit: int | None = None,
         offset: int = 0,
         output: str = "pandas",
         progress: bool = True,
     ):
-        """Fetch component response data."""
+        """Fetch component response data.
+
+        Args:
+            component_type: Only this component type (e.g. ``"vasrating"``).
+            state_id: Only components shown in this state.
+            completed: Only completed (True) or uncompleted (False) components.
+            *: All other args are the same as :meth:`get_events`.
+        """
+        extra: dict[str, Any] = {}
+        if component_type:
+            extra["componentType"] = component_type
+        if state_id:
+            extra["stateId"] = state_id
+        if completed is not None:
+            extra["completed"] = "true" if completed else "false"
         return self._fetch_data(
             "components", scope_id,
             scope=scope, deployment_id=deployment_id, room_id=room_id,
+            start_time=start_time, end_time=end_time,
+            sort=sort, order=order,
             limit=limit, offset=offset,
             output=output, progress=progress,
+            **extra,
         )
 
     def get_participants(
@@ -291,17 +378,32 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
         scope: str = "experiment",
         deployment_id: str | None = None,
         room_id: str | None = None,
+        completion_code: str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
         limit: int | None = None,
         offset: int = 0,
         output: str = "pandas",
         progress: bool = True,
     ):
-        """Fetch participant data."""
+        """Fetch participant data.
+
+        Args:
+            completion_code: Only participants with this outcome: ``SUCCESS``,
+                ``TIMEOUT``, ``TECHNICAL``, ``NOCONSENT``, ``ABANDONED``, or the
+                derived ``IN_PROGRESS`` / ``COMPLETED_NO_CODE``.
+            *: All other args are the same as :meth:`get_events`.
+        """
+        extra: dict[str, Any] = {}
+        if completion_code:
+            extra["completionCode"] = completion_code
         return self._fetch_data(
             "participants", scope_id,
             scope=scope, deployment_id=deployment_id, room_id=room_id,
+            sort=sort, order=order,
             limit=limit, offset=offset,
             output=output, progress=progress,
+            **extra,
         )
 
     def get_rooms(
@@ -310,15 +412,23 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
         *,
         scope: str = "experiment",
         deployment_id: str | None = None,
+        sort: str | None = None,
+        order: str | None = None,
         limit: int | None = None,
         offset: int = 0,
         output: str = "pandas",
         progress: bool = True,
     ):
-        """Fetch room/session data."""
+        """Fetch room/session data.
+
+        Each room reports ``completionReason`` (how it ended: ``completed``,
+        or an end reason such as ``ABANDONED`` or ``disconnect_timeout``) and
+        ``agentStartFailures`` (why its agents could not start, by role).
+        """
         return self._fetch_data(
             "rooms", scope_id,
             scope=scope, deployment_id=deployment_id,
+            sort=sort, order=order,
             limit=limit, offset=offset,
             output=output, progress=progress,
         )
@@ -382,6 +492,17 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
             f"data/counts/participant/{participant_id}", params={"roomId": room_id}
         )
         return single_record(body)
+
+    def check_data_access(self, experiment_id: str) -> dict[str, bool]:
+        """Check whether you may view and export an experiment's data.
+
+        Returns no data, so it is a cheap check before a large fetch.
+
+        Returns:
+            ``{"canView": bool, "canExport": bool}``
+        """
+        body = self._transport.get(f"data/check-access/experiment/{experiment_id}")
+        return {"canView": body["canView"], "canExport": body["canExport"]}
 
     # ------------------------------------------------------------------
     # Convenience: category-filtered events
@@ -728,6 +849,7 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
             "ratings_sparse": self.get_ratings(participant_id, kind="sparse", **common),
             "components": self.get_components(participant_id, **common),
             "eyetracking": self.get_eyetracking(participant_id, **common),
+            "voice": self.get_voice(participant_id, **common),
             "questionnaire": self.get_questionnaire(participant_id, **common),
             "instructions": self.get_instructions(participant_id, **common),
             "consent": self.get_consent(participant_id, **common),
