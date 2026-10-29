@@ -7,6 +7,7 @@ Personas are reusable AI-agent definitions. These methods target the
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any
 
 from ._http import single_record
@@ -32,6 +33,15 @@ def _persona_payload(persona: "Persona | None", kwargs: dict[str, Any]) -> dict[
     # when a Persona was rebuilt from an older API response via extra fields.
     payload.pop("offlineCognition", None)
     payload.pop("offline_cognition", None)
+    # Personas no longer have a language: nothing read it, and the server
+    # discards it. Older stored personas still carry the key, so strip it.
+    if payload.pop("language", None):
+        warnings.warn(
+            "Persona 'language' was removed and is ignored by the server. To set "
+            "the language participants speak, use the experiment's "
+            "agent_config.voice_transcription.language.",
+            stacklevel=3,
+        )
     return payload
 
 
@@ -87,8 +97,15 @@ class PersonaMixin:
     ) -> dict[str, Any]:
         """Update a persona (merge-patch).
 
-        Only the fields you pass are changed; everything else on the stored
-        persona is preserved.
+        Only the top-level fields you pass are changed; everything else on
+        the stored persona is preserved. A nested block you pass (``voice``,
+        ``chat``, ``prompt``, ``guardrails``, ``cognition``) replaces the
+        stored block whole, so send all of it::
+
+            voice = hs.get_persona(pid)["voice"]
+            hs.update_persona(pid, voice={**voice, "speed": 1.1})
+
+        Only the owner or an organization admin may change ``visibility``.
         """
         payload = _persona_payload(persona, kwargs)
         if not payload:

@@ -177,6 +177,11 @@ class ExperimentMixin:
     ) -> dict[str, Any]:
         """Update an experiment.
 
+        Each top-level field you pass replaces the stored one whole: passing
+        ``agent_config=AgentConfig(voice_turn_taking=...)`` also clears any
+        stored ``role_overrides``, so send the complete ``agent_config``.
+        Only the owner or an organization admin may change ``visibility``.
+
         Args:
             experiment_id: ID of the experiment to update.
             experiment: Optional typed :class:`Experiment` carrying the new
