@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ._http import single_record
+
 if TYPE_CHECKING:
     from .models import Persona
 
@@ -48,7 +50,7 @@ class PersonaMixin:
     def get_persona(self, persona_id: str) -> dict[str, Any]:
         """Get one persona by ID."""
         body = self._transport.get(f"personas/{persona_id}")
-        return body.get("data", {})
+        return single_record(body)
 
     def create_persona(
         self,
@@ -74,7 +76,7 @@ class PersonaMixin:
         if not payload.get("name"):
             raise ValueError("Persona name is required")
         body = self._transport.post("personas", json=payload)
-        return body.get("data", {})
+        return single_record(body)
 
     def update_persona(
         self,
@@ -92,7 +94,7 @@ class PersonaMixin:
         if not payload:
             raise ValueError("No fields to update")
         body = self._transport.put(f"personas/{persona_id}", json=payload)
-        return body.get("data", {})
+        return single_record(body)
 
     def delete_persona(self, persona_id: str) -> None:
         """Delete a persona."""
@@ -105,7 +107,7 @@ class PersonaMixin:
             The new persona (named ``"<original name> (copy)"``).
         """
         body = self._transport.post(f"personas/{persona_id}/duplicate")
-        return body.get("data", {})
+        return single_record(body)
 
     def get_cognition_catalog(self) -> dict[str, Any]:
         """Fetch the cognition authoring catalog.
@@ -117,5 +119,4 @@ class PersonaMixin:
             Dict with ``abilities``, ``recipes``, and ``offlineRecipes``.
         """
         body = self._transport.get("agent-cognition/catalog")
-        data = body.get("data", [])
-        return data[0] if isinstance(data, list) and data else data
+        return single_record(body)

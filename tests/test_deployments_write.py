@@ -10,7 +10,7 @@ import responses
 from hyperstudy import HyperStudy
 from hyperstudy.exceptions import ValidationError
 
-from .conftest import BASE_URL
+from .conftest import BASE_URL, envelope
 
 
 @pytest.fixture
@@ -18,15 +18,11 @@ def api_key():
     return "hst_test_abc123"
 
 
-def _envelope(data):
-    return {"status": "success", "data": data, "metadata": {}}
-
-
 @responses.activate
 def test_create_deployment_agent_only(api_key):
     responses.post(
         f"{BASE_URL}/deployments",
-        json=_envelope({"id": "dep-1", "type": "agent-only", "status": "active"}),
+        json=envelope({"id": "dep-1", "type": "agent-only", "status": "active"}),
         status=201,
     )
 
@@ -66,22 +62,22 @@ def test_create_deployment_preflight_failure_raises_validation_error(api_key):
 def test_run_more_and_spend_and_room_controls(api_key):
     responses.post(
         f"{BASE_URL}/deployments/dep-1/run-more",
-        json=_envelope({"batchId": "batch_1", "requestedRooms": 2}),
+        json=envelope({"batchId": "batch_1", "requestedRooms": 2}),
         status=202,
     )
     responses.get(
         f"{BASE_URL}/deployments/dep-1/agent-spend",
-        json=_envelope({"total": 1.5, "perRoom": {"room-1": 1.5}}),
+        json=envelope({"total": 1.5, "perRoom": {"room-1": 1.5}}),
         status=200,
     )
     responses.post(
         f"{BASE_URL}/deployments/dep-1/rooms/room-1/stop",
-        json=_envelope({"stopped": True}),
+        json=envelope({"stopped": True}),
         status=200,
     )
     responses.post(
         f"{BASE_URL}/deployments/dep-1/rooms/room-1/retry",
-        json=_envelope({"batchId": "batch_2", "requestedRooms": 1}),
+        json=envelope({"batchId": "batch_2", "requestedRooms": 1}),
         status=202,
     )
 

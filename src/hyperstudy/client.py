@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 
 from ._dataframe import to_pandas, to_polars
 from ._downloads import build_filename, download_file, get_download_url
-from ._http import HttpTransport
+from ._http import HttpTransport, single_record
 from ._pagination import fetch_all_pages
 from ._types import Scope
 from .exceptions import HyperStudyError
@@ -381,8 +381,7 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
         body = self._transport.get(
             f"data/counts/participant/{participant_id}", params={"roomId": room_id}
         )
-        data = body.get("data", [])
-        return data[0] if isinstance(data, list) and data else data
+        return single_record(body)
 
     # ------------------------------------------------------------------
     # Convenience: category-filtered events
@@ -513,8 +512,7 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
             Deployment dict.
         """
         body = self._transport.get(f"deployments/{deployment_id}")
-        data = body.get("data", [])
-        return data[0] if isinstance(data, list) and data else data
+        return single_record(body)
 
     def get_deployment_sessions(
         self,
@@ -573,12 +571,12 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
         body = self._transport.post(
             "deployments", json={"experimentId": experiment_id, "config": merged}
         )
-        return body.get("data", {})
+        return single_record(body)
 
     def get_agent_spend(self, deployment_id: str) -> dict[str, Any]:
         """Total + per-room agent LLM spend for an agent-only deployment."""
         body = self._transport.get(f"deployments/{deployment_id}/agent-spend")
-        return body.get("data", {})
+        return single_record(body)
 
     def run_more(
         self, deployment_id: str, *, rooms: int, budget_usd: float
@@ -598,7 +596,7 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
             f"deployments/{deployment_id}/run-more",
             json={"rooms": rooms, "budgetUsd": budget_usd},
         )
-        return body.get("data", {})
+        return single_record(body)
 
     def stop_room(self, deployment_id: str, room_id: str) -> None:
         """Force-end a running agent room."""
@@ -609,7 +607,7 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
         body = self._transport.post(
             f"deployments/{deployment_id}/rooms/{room_id}/retry"
         )
-        return body.get("data", {})
+        return single_record(body)
 
     # ------------------------------------------------------------------
     # Agent data — decisions and run manifests
@@ -681,7 +679,7 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
         body = self._transport.get(
             f"data/agent-decisions/room/{room_id}/decision/{decision_id}"
         )
-        return body.get("data", {})
+        return single_record(body)
 
     def get_agent_runs(
         self,
@@ -752,7 +750,7 @@ class HyperStudy(ExperimentMixin, PersonaMixin):
         download_path = recording.get("downloadPath")
         if download_path:
             body = self._transport.get(download_path)
-            return (body.get("data") or {}).get("url")
+            return single_record(body).get("url")
         return get_download_url(recording)
 
     def download_recording(

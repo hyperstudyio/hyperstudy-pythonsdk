@@ -16,6 +16,20 @@ def load_fixture(name: str) -> dict:
     return json.loads((FIXTURES_DIR / name).read_text())
 
 
+def envelope(data, **metadata) -> dict:
+    """A v3 success envelope exactly as the server builds it.
+
+    The server's ``formatSuccess`` always sends ``data`` as an array, wrapping
+    a single object as ``[obj]``. Mocks must do the same, or a method that
+    mishandles the wrapping passes its tests and fails against the real API.
+    """
+    return {
+        "status": "success",
+        "metadata": metadata,
+        "data": data if isinstance(data, list) else [data],
+    }
+
+
 @pytest.fixture
 def base_url():
     return BASE_URL
