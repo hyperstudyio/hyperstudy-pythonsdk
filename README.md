@@ -40,6 +40,7 @@ All data retrieval methods follow the same pattern:
 events        = hs.get_events("exp_id")
 recordings    = hs.get_recordings("exp_id")
 chat          = hs.get_chat("exp_id")
+voice         = hs.get_voice("exp_id")   # voice agent conversations
 videochat     = hs.get_videochat("exp_id")
 sync          = hs.get_sync("exp_id")
 ratings       = hs.get_ratings("exp_id", kind="continuous")
@@ -59,6 +60,9 @@ variables = hs.get_variables("room_id")
 
 # Per-data-type document counts for one participant in a room
 counts = hs.get_counts("participant_id", room_id="room_id")
+
+# Whether you may view / export an experiment's data (no data fetched)
+access = hs.check_data_access("exp_id")  # {"canView": True, "canExport": False}
 ```
 
 ### Output Formats
@@ -80,6 +84,9 @@ events = hs.get_events(
     sort="onset",
     limit=100,
 )
+
+ratings = hs.get_components("exp_id", component_type="vasrating", completed=True)
+abandoned = hs.get_participants("exp_id", completion_code="ABANDONED")
 ```
 
 ### Auto-Pagination
@@ -196,6 +203,49 @@ detail = hs.get_agent_decision("room_id", "participantId_3")     # full blobs
 catalog = hs.get_cognition_catalog()  # {"abilities": ..., "recipes": ..., "offlineRecipes": ...}
 ```
 
+### Voice agents
+
+A persona with a `voice` speaks in the experiment's audio. The experiment sets how its voice agents take turns and whether participants' speech is transcribed.
+
+```python
+from hyperstudy import (
+    PersonaVoice, RealtimeVoice, VoiceTurnTaking, EngineTurnDetection, VoiceTranscription,
+)
+
+voice_persona = hs.create_persona(persona=Persona(
+    name="Interviewer",
+    display_name="Sam",                      # what other participants see
+    provider="openai",
+    voice=PersonaVoice(
+        engine="realtime",
+        preset="marin",                      # the provider's voice
+        speed=1.0,
+        style="warm, a little hesitant",
+        realtime=RealtimeVoice(provider="openai", model="gpt-realtime-2.1"),
+    ),
+))
+
+exp = hs.create_experiment(experiment=Experiment(
+    name="Voice interview",
+    runtime="v2",
+    roles={"interviewer": Role(mode="agent", persona_id=voice_persona["id"])},
+    agent_config=AgentConfig(
+        voice_turn_taking=VoiceTurnTaking(
+            engine_turn_detection=EngineTurnDetection(type="server_vad", silence_duration_ms=800),
+            min_response_delay_ms=250,
+        ),
+        voice_transcription=VoiceTranscription(enabled=True, language="en"),
+    ),
+    states=[...],
+))
+
+# One room's conversation: every speaker's turns, plus what the engine was told
+conversation = hs.get_voice("room_id", scope="room")
+turns = conversation[conversation["kind"] == "utterance"][["onset", "speaker", "transcript"]]
+```
+
+`update_persona` and `update_experiment` replace a nested block whole, so pass the complete `voice` or `agent_config` when changing one setting in it.
+
 Persona methods need the `read:personas` / `write:personas` API-key scopes; deployment launch/control needs `write:deployments`; agent data reads need `read:events`.
 
 ## All Data for a Participant
@@ -203,7 +253,7 @@ Persona methods need the `read:personas` / `write:personas` API-key scopes; depl
 ```python
 data = hs.get_all_data("participant_id", room_id="room_id")
 # Returns dict with keys: events, recordings, chat, videochat, sync,
-# ratings_continuous, ratings_sparse, components, eyetracking,
+# ratings_continuous, ratings_sparse, components, eyetracking, voice,
 # questionnaire, instructions, consent, agent_decisions
 ```
 
