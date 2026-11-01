@@ -31,13 +31,17 @@ from .exceptions import (
 )
 from .models import (
     AgentConfig,
+    Cluster,
+    ClusterRule,
     ComponentType,
     DisconnectTimeout,
+    Distribution,
     EngineTurnDetection,
     Experiment,
     ExperimenterMessageStyle,
     FocusComponent,
     GlobalComponentType,
+    Group,
     Guardrails,
     InstructionsPage,
     Persona,
@@ -49,6 +53,7 @@ from .models import (
     Role,
     State,
     TransitionRules,
+    VariableDefinition,
     VoiceTranscription,
     VoiceTurnTaking,
     WaitingRoomConfig,
@@ -63,7 +68,7 @@ from .models import (
     waiting,
 )
 
-__version__ = "0.4.2"
+__version__ = "0.4.3"
 
 __all__ = [
     "HyperStudy",
@@ -98,6 +103,11 @@ __all__ = [
     "VoiceTranscription",
     "ExperimenterMessageStyle",
     "TransitionRules",
+    "Group",
+    "Cluster",
+    "ClusterRule",
+    "VariableDefinition",
+    "Distribution",
     "WaitingRoomConfig",
     "DisconnectTimeout",
     "InstructionsPage",

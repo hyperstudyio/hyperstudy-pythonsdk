@@ -144,6 +144,38 @@ info = hs.create_experiment(experiment=exp)
 
 Component factories cover `show_text`, `show_image`, `show_video`, `vas_rating`, `text_input`, `multiple_choice`, `waiting`, `likert_scale`, `ranking`. For other component types, construct directly: `FocusComponent(type=ComponentType.X, config={...})`. See the [Experiment Authoring guide](https://docs.hyperstudy.io/experimenters/api-access/experiment-authoring) for the full reference.
 
+### Randomization and variables (V2 runner)
+
+Clusters randomize the order of states and groups once per room while `randomize_states=True`; with it `False` the clusters are kept but rooms run the listed order. Variable definitions hold constants, random draws and computed values. Both need `runtime="v2"` (the server's default for new experiments). On the legacy runner, `randomize_states=True` shuffles each participant's order instead.
+
+```python
+from hyperstudy import Cluster, ClusterRule, Distribution, TransitionRules, VariableDefinition
+
+iti = VariableDefinition(
+    name="iti_ms", kind="random",
+    distribution=Distribution(type="uniform", min=500, max=1500),
+)
+exp = Experiment(
+    name="Randomized study",
+    runtime="v2",
+    randomize_states=True,
+    clusters=[Cluster(id="block", rule=ClusterRule(type="shuffle"))],
+    variable_definitions=[
+        VariableDefinition(name="endowment", kind="constant", value=10),
+        VariableDefinition(name="doubled", kind="computed", expr="endowment * 2"),
+        iti,
+    ],
+    states=[
+        State(id="a", cluster_id="block", focus_component=show_text("You have {endowment}")),
+        State(id="b", cluster_id="block", focus_component=show_text("Doubled: {doubled}")),
+        State(id="pause", focus_component=show_text("+"),
+              transition_rules=TransitionRules(type="TIMED", variable_id=iti.id)),
+    ],
+)
+```
+
+The server refuses a create or update that would make clusters or variables invalid, raising `ValidationError` with the reasons in `err.details["errors"]`.
+
 ## Deployments
 
 ```python
