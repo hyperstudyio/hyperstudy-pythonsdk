@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.4.3
+
+### Features
+
+- **State randomization (V2 runner)**: `Experiment.clusters` (`Cluster`, `ClusterRule`: `type` `shuffle` | `keep`, `across_groups` `independent` | `same`). States and groups join a cluster with `cluster_id`. Each room draws its order once, so everyone in the room runs the same order. Clusters are used only while `randomize_states=True`, the same setting the legacy runner uses to shuffle each participant's order; with it `False` they are kept but not used.
+- **Variable definitions (V2 runner)**: `Experiment.variable_definitions` (`VariableDefinition` with `kind` `constant`, `random` or `computed`; `Distribution` for random variables: `uniform`, `normal`, `exponential` or `list`, drawn `per_use` or `per_room`). A TIMED state draws its duration from a random variable with `TransitionRules(type="TIMED", variable_id=...)`. Ids are generated when omitted.
+- **`Group`** model for `Experiment.groups` (`id`, `name`, `order`, `children`, `cluster_id`).
+- A constant's `value` and a list distribution's `values` are sent exactly as written on the kwargs and raw-dict paths, like other researcher-named data.
+
+### Notes
+
+- Both fields need `runtime="v2"`, the server's default for new experiments. The server refuses non-empty `variable_definitions` on any other runtime, and refuses a create or update that would make clusters or variables invalid (`ValidationError`, reasons in `details["errors"]`).
+- Pass `runtime="v2"` to `validate_experiment` when validating variable definitions: servers older than v0.7.32 do not apply create's `"v2"` default in the dry run.
+
 ## v0.4.2
 
 ### Breaking Changes

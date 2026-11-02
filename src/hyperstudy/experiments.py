@@ -211,6 +211,11 @@ class ExperimentMixin:
         ``{"valid": True}`` on success, or ``{"valid": False, "errors": [...]}``
         with a list of issues.
 
+        Set ``runtime`` explicitly when the definition has
+        ``variable_definitions``: servers older than v0.7.32 do not default
+        it to ``"v2"`` here the way :meth:`create_experiment` does, and
+        report variable definitions on any other runtime as an error.
+
         Args:
             experiment: An :class:`Experiment` or a raw config dict.
         """

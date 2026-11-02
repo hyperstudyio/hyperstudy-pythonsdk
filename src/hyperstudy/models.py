@@ -37,10 +37,13 @@ _FREEFORM_MAP_FIELDS = frozenset({
 # (engineTurnDetection), and names the researcher chose (cognition contexts,
 # stimulus mappings, free-form metadata). Matching on position, not the bare
 # key, keeps a variable or role that happens to be named "metadata" a variable.
+# A variable definition's constant ``value`` and a list distribution's
+# ``values`` are researcher data, so their keys are kept too.
 _VERBATIM_FIELDS = frozenset({
     (None, "extraParams"), (None, "cognition"), (None, "stimulusMappings"),
     (None, "metadata"), (None, "prolific_config"),
     ("voiceTurnTaking", "engineTurnDetection"),
+    ("variableDefinitions", "value"), ("distribution", "values"),
 })
 
 # Experiment fields the backend stores under snake_case names.
@@ -151,14 +154,23 @@ class FocusComponent(_Model):
 
 
 class TransitionRules(_Model):
-    """Rules governing how the experiment transitions from a state."""
+    """Rules governing how the experiment transitions from a state.
+
+    On the V2 runner a ``"TIMED"`` state can draw its duration from a random
+    variable instead of a fixed value: set ``variable_id`` to the id of a
+    :class:`VariableDefinition` with ``kind="random"``.
+    """
 
     type: Optional[str] = None
     duration_ms: Optional[int] = Field(default=None, ge=0)
+    variable_id: Optional[str] = None
 
 
 class State(_Model):
-    """An experiment state — a single screen/phase."""
+    """An experiment state — a single screen/phase.
+
+    ``cluster_id`` (V2 runner) makes the state a member of a :class:`Cluster`.
+    """
 
     id: str = Field(min_length=1)
     name: Optional[str] = None
@@ -166,6 +178,108 @@ class State(_Model):
     focus_component: Optional[FocusComponent] = None
     transition_rules: Optional[TransitionRules] = None
     global_components_visibility: Optional[dict[str, bool]] = None
+    cluster_id: Optional[str] = None
+
+
+class Group(_Model):
+    """A group of states that run together.
+
+    ``children`` are state ids, in run order. ``order`` places the group
+    among the top-level states (lone states and groups share one sequence).
+    ``cluster_id`` (V2 runner) makes the whole group a member of a
+    :class:`Cluster`, moving as one unit; its states can carry their own
+    ``cluster_id`` to be randomized within the group.
+    """
+
+    id: str = Field(min_length=1)
+    name: Optional[str] = None
+    order: Optional[int] = Field(default=None, ge=0)
+    children: Optional[list[str]] = None
+    cluster_id: Optional[str] = None
+
+
+class ClusterRule(_Model):
+    """How a cluster orders its members.
+
+    ``type``: ``"shuffle"`` (a uniformly random order) or ``"keep"`` (the
+    authored order). ``across_groups``, for a cluster used inside groups:
+    ``"independent"`` (default; each group draws its own order) or
+    ``"same"`` (one order applied to every group using the cluster, which
+    must then all have the same number of members).
+    """
+
+    type: str  # "shuffle" | "keep"
+    across_groups: Optional[str] = None  # "independent" (default) | "same"
+
+
+class Cluster(_Model):
+    """A randomization cluster (V2 runner only; ignored on the legacy runner).
+
+    Used only while the experiment's ``randomize_states`` is True; with it
+    False the clusters are kept but rooms run the listed order.
+
+    States and groups join a cluster by setting ``cluster_id`` to its ``id``.
+    A cluster applies among siblings: the top-level items (lone states and
+    whole groups), or the states inside one group. Members trade places
+    among the positions they occupy; everything else stays where it is. Each
+    room draws its order once, so everyone in the room runs the same order.
+    """
+
+    id: str = Field(default_factory=_new_id, min_length=1)
+    name: Optional[str] = None
+    color: Optional[str] = None
+    rule: ClusterRule
+
+
+class Distribution(_Model):
+    """The distribution a random variable draws from.
+
+    - ``type="uniform"``: ``min``, ``max``
+    - ``type="normal"``: ``mean``, ``sd``; optional ``min`` / ``max`` truncate it
+    - ``type="exponential"``: ``mean``; ``min`` (default 0) plus an exponential
+      with this mean, optionally cut at ``max``
+    - ``type="list"``: ``values`` and ``sampling`` (``"with_replacement"``,
+      ``"without_replacement"`` — a deck reshuffled when exhausted — or
+      ``"sequential"``, in order, wrapping)
+    """
+
+    type: str  # "uniform" | "normal" | "exponential" | "list"
+    min: Optional[float] = None
+    max: Optional[float] = None
+    mean: Optional[float] = None
+    sd: Optional[float] = Field(default=None, gt=0)
+    values: Optional[list[Any]] = Field(default=None, min_length=1, max_length=1000)
+    sampling: Optional[str] = None  # list: with_replacement | without_replacement | sequential
+
+
+class VariableDefinition(_Model):
+    """A variable the experiment defines (V2 runner only).
+
+    ``kind`` decides which fields apply:
+
+    - ``"constant"``: ``value`` (text, a number, true/false, a list or a dict)
+    - ``"random"``: ``distribution``, ``draw`` (``"per_use"``, the default: a
+      fresh value for each state that takes its duration from it;
+      ``"per_room"``: one value for the room) and ``round`` (decimals kept,
+      default 0). Values are drawn when the room is planned, so everyone in
+      the room gets the same ones.
+    - ``"computed"``: ``expr``, an expression over other variables
+
+    ``name`` is what component text (``{name}``) and expressions read; ``id``
+    is what a TIMED state's ``TransitionRules.variable_id`` references, and is
+    generated when omitted. The server refuses non-empty definitions unless
+    the experiment's ``runtime`` is ``"v2"``, and refuses a save that makes
+    them invalid (``ValidationError``, messages in ``details["errors"]``).
+    """
+
+    id: str = Field(default_factory=_new_id, min_length=1)
+    name: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+    kind: str  # "constant" | "random" | "computed"
+    value: Optional[Any] = None
+    distribution: Optional[Distribution] = None
+    draw: Optional[str] = None  # random: "per_use" (default) | "per_room"
+    round: Optional[int] = Field(default=None, ge=0, le=6)
+    expr: Optional[str] = Field(default=None, min_length=1, max_length=2000)
 
 
 class Role(_Model):
@@ -371,10 +485,15 @@ class Experiment(_Model):
     name: str = Field(min_length=1)
     description: Optional[str] = None
     required_participants: Optional[int] = Field(default=None, ge=1)
-    runtime: Optional[str] = None  # "v2" required for agent-only deployments
+    # "v2" (the server's default for new experiments) or "v1" (legacy).
+    # Agents, clusters and variable_definitions need "v2".
+    runtime: Optional[str] = None
     agent_config: Optional[AgentConfig] = None
-    randomize_states: Optional[bool] = None
+    randomize_states: Optional[bool] = None  # legacy: shuffle per participant; v2: use clusters
     states: Optional[list[State]] = None
+    groups: Optional[list[Group]] = None
+    clusters: Optional[list[Cluster]] = Field(default=None, max_length=100)
+    variable_definitions: Optional[list[VariableDefinition]] = Field(default=None, max_length=500)
     roles: Optional[dict[str, Role]] = None
     global_components: Optional[dict[GlobalComponentType, dict[str, Any]]] = None
     variables: Optional[dict[str, Any]] = None
@@ -561,12 +680,18 @@ __all__ = [
     "State",
     "FocusComponent",
     "TransitionRules",
+    "Group",
     "Role",
     "WaitingRoomConfig",
     "DisconnectTimeout",
     "InstructionsPage",
     "PostExperimentQuestionnaire",
     "ExperimenterMessageStyle",
+    # Randomization and variables (V2 runner)
+    "Cluster",
+    "ClusterRule",
+    "VariableDefinition",
+    "Distribution",
     # Agent models
     "AgentConfig",
     "PromptLayer",
