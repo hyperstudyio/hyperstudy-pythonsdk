@@ -25,8 +25,7 @@ def _new_id() -> str:
 # names, component ids), NOT schema fields — their keys must NOT be camelCased.
 # Their values are still recursed into.
 _FREEFORM_MAP_FIELDS = frozenset({
-    "variables", "roles", "globalComponents", "globalComponentsVisibility",
-    "roleOverrides",
+    "roles", "globalComponents", "globalComponentsVisibility", "roleOverrides",
 })
 
 # Fields whose whole value goes on the wire exactly as written, as
@@ -61,7 +60,7 @@ def _dump(model: BaseModel) -> dict[str, Any]:
 def camelize_wire(value: Any, _parent_key: "str | None" = None) -> Any:
     """Recursively convert snake_case dict keys to camelCase for the wire format.
 
-    Skips converting the immediate keys of free-form map fields (variables, roles,
+    Skips converting the immediate keys of free-form map fields (roles,
     globalComponents, globalComponentsVisibility) — those are user-defined names —
     but still recurses into their values. Values of ``_VERBATIM_FIELDS`` are
     passed through untouched; their positions are relative to the payload root,
@@ -496,7 +495,6 @@ class Experiment(_Model):
     variable_definitions: Optional[list[VariableDefinition]] = Field(default=None, max_length=500)
     roles: Optional[dict[str, Role]] = None
     global_components: Optional[dict[GlobalComponentType, dict[str, Any]]] = None
-    variables: Optional[dict[str, Any]] = None
     waiting_room_config: Optional[WaitingRoomConfig] = None
     disconnect_timeout: Optional[DisconnectTimeout] = None
     completion_screen_duration_ms: Optional[int] = Field(default=None, ge=0)

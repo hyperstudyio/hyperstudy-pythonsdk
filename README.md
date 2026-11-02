@@ -176,6 +176,8 @@ exp = Experiment(
 
 The server refuses a create or update that would make clusters or variables invalid, raising `ValidationError` with the reasons in `err.details["errors"]`.
 
+It also refuses a key that is not an experiment field, such as a misspelt one, rather than dropping it; an update may send a fetched config back whole, since its server-owned fields come back unchanged. `validate_experiment` runs create's checks without creating anything.
+
 ## Deployments
 
 ```python

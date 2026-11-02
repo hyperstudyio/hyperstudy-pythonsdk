@@ -135,16 +135,13 @@ def test_typed_models_passed_as_kwargs_are_serialized(api_key):
 
 @responses.activate
 def test_user_named_keys_matching_verbatim_fields_are_still_converted(api_key):
-    """A variable or role NAMED like a verbatim field is still a variable or role."""
+    """A role NAMED like a verbatim field is still a role."""
     responses.put(f"{BASE_URL}/experiments/exp-1", json=envelope({"id": "exp-1"}), status=200)
     HyperStudy(api_key=api_key).update_experiment(
         "exp-1",
-        variables={"metadata": {"initial_value": 1}, "score": {"initial_value": 0}},
         roles={"cognition": {"participant_count": 1}},
     )
-    sent = _sent()
-    assert sent["variables"] == {"metadata": {"initialValue": 1}, "score": {"initialValue": 0}}
-    assert sent["roles"] == {"cognition": {"participantCount": 1}}
+    assert _sent()["roles"] == {"cognition": {"participantCount": 1}}
 
 
 @responses.activate
