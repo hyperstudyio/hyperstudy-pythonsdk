@@ -15,6 +15,21 @@ if TYPE_CHECKING:
     from .models import Experiment
 
 
+def _refuse_retired_variables(payload: dict[str, Any]) -> None:
+    """Refuse ``variables`` in a new definition, before a request is made.
+
+    The server never stored it: it dropped the field without an error, and
+    now refuses it. Updates are left to the server, which accepts a fetched
+    config's stored ``variables`` sent back unchanged.
+    """
+    if "variables" in payload:
+        raise ValueError(
+            "'variables' is not supported: define the experiment's variables "
+            "with variable_definitions (VariableDefinition: constant, random "
+            "or computed; V2 runner)"
+        )
+
+
 def _build_experiment_payload(
     experiment: "Experiment | dict[str, Any] | None" = None,
     **overrides: Any,
@@ -155,10 +170,15 @@ class ExperimentMixin:
 
         Returns:
             The created :class:`ExperimentInfo`.
+
+        Raises:
+            ValueError: The definition sets the retired ``variables`` field;
+                use ``variable_definitions``.
         """
         if name is not None:
             kwargs["name"] = name
         payload = _build_experiment_payload(experiment, **kwargs)
+        _refuse_retired_variables(payload)
         if not payload.get("name"):
             raise TypeError(
                 "create_experiment requires a 'name' "
@@ -207,9 +227,11 @@ class ExperimentMixin:
     ) -> dict[str, Any]:
         """Dry-run validation of an experiment definition against the backend.
 
-        Returns the ``ValidationResultResponse`` body — typically
-        ``{"valid": True}`` on success, or ``{"valid": False, "errors": [...]}``
-        with a list of issues.
+        Runs the checks :meth:`create_experiment` runs, without creating
+        anything: a definition this calls valid is one create accepts, and
+        the ``errors`` are the messages create would refuse it with. Older
+        servers ran fewer checks here than on create (agent roles,
+        ``agent_config`` and ``rooms`` were not checked).
 
         Set ``runtime`` explicitly when the definition has
         ``variable_definitions``: servers older than v0.7.32 do not default
@@ -218,10 +240,15 @@ class ExperimentMixin:
 
         Args:
             experiment: An :class:`Experiment` or a raw config dict.
+
+        Returns:
+            ``{"valid": bool, "errors": [str, ...], "warnings": [str, ...]}``.
+            ``valid`` is ``True`` exactly when ``errors`` is empty.
         """
         if experiment is None:
             raise TypeError("validate_experiment requires an Experiment or dict")
         payload = _build_experiment_payload(experiment)
+        _refuse_retired_variables(payload)
         body = self._transport.post("experiments/validate", json=payload)
         return single_record(body)
 

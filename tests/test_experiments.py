@@ -464,12 +464,51 @@ def test_build_payload_dict_nested_list_camelized():
     assert "focus_component" not in payload["states"][0]
 
 
-def test_build_payload_freeform_keys_preserved():
-    """variables keys are NOT camelized (user-defined names), but values are."""
-    from hyperstudy.experiments import _build_experiment_payload
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda c: c.create_experiment(name="x", variables={"endowment": 10}),
+        lambda c: c.create_experiment(experiment=Experiment(name="x", variables={"endowment": 10})),
+        lambda c: c.validate_experiment({"name": "x", "variables": {"endowment": 10}}),
+        lambda c: c.validate_experiment(Experiment(name="x", variables={"endowment": 10})),
+    ],
+    ids=["create kwargs", "create Experiment extra", "validate dict", "validate Experiment extra"],
+)
+@responses.activate
+def test_create_and_validate_refuse_retired_variables(client, call):
+    """``variables`` was never stored: the server dropped it, and now refuses it.
 
-    payload = _build_experiment_payload({"variables": {"my_var_name": 1}})
-    assert payload == {"variables": {"my_var_name": 1}}
+    Create and validate refuse it before a request is made, pointing at
+    ``variable_definitions``.
+    """
+    with pytest.raises(ValueError, match="variable_definitions"):
+        call(client)
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_update_sends_variables_for_the_server_to_judge(client, base_url):
+    """A fetched config sent back whole carries a legacy experiment's stored
+    ``variables``; the server accepts it unchanged and refuses an edit."""
+    responses.put(f"{base_url}/experiments/exp-1", json={"status": "success", "data": [{"id": "exp-1"}]}, status=200)
+
+    client.update_experiment("exp-1", name="Renamed", variables=[{"name": "endowment", "value": 10}])
+
+    sent = json.loads(responses.calls[0].request.body)
+    assert sent["variables"] == [{"name": "endowment", "value": 10}]
+
+
+@responses.activate
+def test_update_sends_stored_variable_names_as_written(client, base_url):
+    """The server accepts stored ``variables`` only unchanged, so the names in
+    a fetched config must not be camelCased on the way back."""
+    responses.put(f"{base_url}/experiments/exp-1", json={"status": "success", "data": [{"id": "exp-1"}]}, status=200)
+    config = {"name": "Existing", "variables": {"trial_score": 1, "my_var": {"initial_value": 1}}}
+
+    client.update_experiment("exp-1", **config)
+
+    sent = json.loads(responses.calls[0].request.body)["variables"]
+    assert sent == {"trial_score": 1, "my_var": {"initial_value": 1}}
 
 
 def test_build_payload_roles_name_preserved_value_camelized():

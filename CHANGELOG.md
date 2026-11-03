@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.4.4
+
+### Breaking Changes
+
+- **Removed `Experiment.variables`.** The server never stored it: create and update dropped it without an error, so the variables were silently lost. `create_experiment` and `validate_experiment` now raise `ValueError` for `variables` before any request is made, however it is passed (the `Experiment` model, keyword arguments or a raw dict). Define variables with `variable_definitions` (`VariableDefinition`: constant, random or computed; V2 runner). `update_experiment` still sends it: a config fetched with `get_experiment_config` and sent back whole carries an older experiment's stored `variables`, which the server accepts unchanged and refuses if edited.
+
+### Notes
+
+- From HyperStudy v0.7.33, the server refuses a key that is not an experiment field (a misspelt field, a server-owned field such as `ownerId`) with `ValidationError` naming the key, instead of dropping it. An update may still send a fetched config back whole: a server-owned field that never changes (`id`, `ownerId`, `createdAt`, ...) is accepted when it matches what is stored and refused if changed, and the fields the server rewrites on every save (`updatedAt`, `version`, `updatedBy`, `nameLower`) are ignored, so a config fetched before later saves still goes back.
+- From v0.7.33, `validate_experiment` runs the same checks as `create_experiment`, and its `errors` and `warnings` are lists of message strings.
+
 ## v0.4.3
 
 ### Features
