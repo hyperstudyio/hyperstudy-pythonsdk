@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.4.4
 
 ### Breaking Changes
 
@@ -8,8 +8,8 @@
 
 ### Notes
 
-- Servers from this release on refuse a key that is not an experiment field (a misspelt field, a server-owned field such as `ownerId`) with `ValidationError` naming the key, instead of dropping it. An update may still send a fetched config back whole: a server-owned field sent back with its stored value is accepted and left as it is; a changed one is refused.
-- `validate_experiment` runs the same checks as `create_experiment` on those servers, and its `errors` and `warnings` are lists of message strings.
+- From HyperStudy v0.7.33, the server refuses a key that is not an experiment field (a misspelt field, a server-owned field such as `ownerId`) with `ValidationError` naming the key, instead of dropping it. An update may still send a fetched config back whole: a server-owned field that never changes (`id`, `ownerId`, `createdAt`, ...) is accepted when it matches what is stored and refused if changed, and the fields the server rewrites on every save (`updatedAt`, `version`, `updatedBy`, `nameLower`) are ignored, so a config fetched before later saves still goes back.
+- From v0.7.33, `validate_experiment` runs the same checks as `create_experiment`, and its `errors` and `warnings` are lists of message strings.
 
 ## v0.4.3
 
