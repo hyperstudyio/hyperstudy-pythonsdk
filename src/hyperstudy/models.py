@@ -23,12 +23,9 @@ def _new_id() -> str:
 
 # Fields whose IMMEDIATE child keys are user-defined names (variable names, role
 # names, component ids), NOT schema fields — their keys must NOT be camelCased.
-# Their values are still recursed into. ``variables`` is retired, but an older
-# experiment's stored map comes back in a fetched config, and the server
-# accepts it on update only unchanged.
+# Their values are still recursed into.
 _FREEFORM_MAP_FIELDS = frozenset({
-    "variables", "roles", "globalComponents", "globalComponentsVisibility",
-    "roleOverrides",
+    "roles", "globalComponents", "globalComponentsVisibility", "roleOverrides",
 })
 
 # Fields whose whole value goes on the wire exactly as written, as
@@ -38,11 +35,13 @@ _FREEFORM_MAP_FIELDS = frozenset({
 # turn-detection settings, which use OpenAI's snake_case names
 # (engineTurnDetection), and names the researcher chose (cognition contexts,
 # stimulus mappings, free-form metadata). Matching on position, not the bare
-# key, keeps a variable or role that happens to be named "metadata" a variable.
+# key, keeps a role that happens to be named "metadata" a role.
 # A variable definition's constant ``value`` and a list distribution's
-# ``values`` are researcher data, so their keys are kept too.
+# ``values`` are researcher data, so their keys are kept too. ``variables`` is
+# retired, but an older experiment's stored map comes back in a fetched
+# config, and the server accepts it on update only exactly as stored.
 _VERBATIM_FIELDS = frozenset({
-    (None, "extraParams"), (None, "cognition"), (None, "stimulusMappings"),
+    (None, "variables"), (None, "extraParams"), (None, "cognition"), (None, "stimulusMappings"),
     (None, "metadata"), (None, "prolific_config"),
     ("voiceTurnTaking", "engineTurnDetection"),
     ("variableDefinitions", "value"), ("distribution", "values"),
@@ -63,7 +62,7 @@ def _dump(model: BaseModel) -> dict[str, Any]:
 def camelize_wire(value: Any, _parent_key: "str | None" = None) -> Any:
     """Recursively convert snake_case dict keys to camelCase for the wire format.
 
-    Skips converting the immediate keys of free-form map fields (variables, roles,
+    Skips converting the immediate keys of free-form map fields (roles,
     globalComponents, globalComponentsVisibility) — those are user-defined names —
     but still recurses into their values. Values of ``_VERBATIM_FIELDS`` are
     passed through untouched; their positions are relative to the payload root,

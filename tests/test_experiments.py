@@ -503,11 +503,12 @@ def test_update_sends_stored_variable_names_as_written(client, base_url):
     """The server accepts stored ``variables`` only unchanged, so the names in
     a fetched config must not be camelCased on the way back."""
     responses.put(f"{base_url}/experiments/exp-1", json={"status": "success", "data": [{"id": "exp-1"}]}, status=200)
-    config = {"name": "Existing", "variables": {"trial_score": 1}}
+    config = {"name": "Existing", "variables": {"trial_score": 1, "my_var": {"initial_value": 1}}}
 
     client.update_experiment("exp-1", **config)
 
-    assert json.loads(responses.calls[0].request.body)["variables"] == {"trial_score": 1}
+    sent = json.loads(responses.calls[0].request.body)["variables"]
+    assert sent == {"trial_score": 1, "my_var": {"initial_value": 1}}
 
 
 def test_build_payload_roles_name_preserved_value_camelized():
